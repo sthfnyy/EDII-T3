@@ -1,60 +1,8 @@
 #include <stdio.h>
 #include <time.h>
+#include "Q02.h"
 
-#define NUM_DISCOS 4
-#define NUM_PINOS 3
-#define NUM_ESTADOS 81   /* 3^4 */
-#define INFINITO 1000000
-#define MAX_VIZINHOS 10  /* número máximo de vizinhos de um estado */
 
-/* Estrutura para lista de adjacência */
-typedef struct
-{
-    int vizinhos[MAX_VIZINHOS];
-    int qtd_vizinhos;
-} ListaAdj;
-
-/* ================== PROTÓTIPOS ================== */
-
-void decodificar_estado(int indice, int vetor_estado[]);
-int  codificar_estado(int vetor_estado[]);
-
-void decodificar_estado_rec(int indice, int posicao, int vetor_estado[]);
-int  codificar_estado_rec(int posicao, int vetor_estado[], int multiplicador);
-
-int  encontrar_topo_pino(int vetor_estado[], int pino);
-
-void inicializar_matriz_rec(int matriz[NUM_ESTADOS][NUM_ESTADOS], int linha, int coluna);
-void construir_matriz_adjacencia_rec(int matriz[NUM_ESTADOS][NUM_ESTADOS], int indice_estado);
-void construir_matriz_adjacencia(int matriz[NUM_ESTADOS][NUM_ESTADOS]);
-
-void inicializar_grafo_lista_rec(ListaAdj grafo[], int indice);
-void construir_grafo_lista_rec(ListaAdj grafo[], int indice_estado);
-void construir_grafo_lista(ListaAdj grafo[]);
-void adicionar_vizinho(ListaAdj grafo[], int origem, int destino);
-
-int  encontrar_menor_distancia_rec(int distancia[], int visitado[],
-                                   int posicao, int menor_valor, int indice_menor);
-
-void dijkstra_matriz(int matriz[NUM_ESTADOS][NUM_ESTADOS],
-                     int inicio,
-                     int destino,
-                     int antecessor[],
-                     int distancia[]);
-
-void dijkstra_lista(ListaAdj grafo[],
-                    int inicio,
-                    int destino,
-                    int antecessor[],
-                    int distancia[]);
-
-void imprimir_estado(int vetor_estado[]);
-void imprimir_caminho_rec(int caminho[], int tamanho, int indice);
-void imprimir_caminho(int antecessor[], int inicio, int destino);
-
-/* ================== CONVERSÕES ÍNDICE ↔ ESTADO ================== */
-
-/* Versão recursiva da decodificação: número em base 3 */
 void decodificar_estado_rec(int indice, int posicao, int vetor_estado[])
 {
     if (posicao < NUM_DISCOS)
@@ -63,14 +11,12 @@ void decodificar_estado_rec(int indice, int posicao, int vetor_estado[])
         decodificar_estado_rec(indice / NUM_PINOS, posicao + 1, vetor_estado);
     }
 
-    return;
 }
 
 /* Função de uso geral para decodificar */
 void decodificar_estado(int indice, int vetor_estado[])
 {
     decodificar_estado_rec(indice, 0, vetor_estado);
-    return;
 }
 
 /* Versão recursiva da codificação: vetor → número em base 3 */
@@ -141,7 +87,6 @@ void inicializar_matriz_rec(int matriz[NUM_ESTADOS][NUM_ESTADOS], int linha, int
         }
     }
 
-    return;
 }
 
 /* Constrói a matriz de adjacência percorrendo todos os estados */
@@ -191,14 +136,12 @@ void construir_matriz_adjacencia_rec(int matriz[NUM_ESTADOS][NUM_ESTADOS],
         construir_matriz_adjacencia_rec(matriz, indice_estado + 1);
     }
 
-    return;
 }
 
 void construir_matriz_adjacencia(int matriz[NUM_ESTADOS][NUM_ESTADOS])
 {
     inicializar_matriz_rec(matriz, 0, 0);
     construir_matriz_adjacencia_rec(matriz, 0);
-    return;
 }
 
 /* ================== LISTA DE ADJACÊNCIA ================== */
@@ -211,7 +154,6 @@ void inicializar_grafo_lista_rec(ListaAdj grafo[], int indice)
         inicializar_grafo_lista_rec(grafo, indice + 1);
     }
 
-    return;
 }
 
 void adicionar_vizinho(ListaAdj grafo[], int origem, int destino)
@@ -226,7 +168,6 @@ void adicionar_vizinho(ListaAdj grafo[], int origem, int destino)
         grafo[origem].qtd_vizinhos = grafo[origem].qtd_vizinhos + 1;
     }
 
-    return;
 }
 
 /* Constrói a lista de adjacência da mesma forma lógica da matriz */
@@ -275,24 +216,18 @@ void construir_grafo_lista_rec(ListaAdj grafo[], int indice_estado)
         construir_grafo_lista_rec(grafo, indice_estado + 1);
     }
 
-    return;
 }
 
 void construir_grafo_lista(ListaAdj grafo[])
 {
     inicializar_grafo_lista_rec(grafo, 0);
     construir_grafo_lista_rec(grafo, 0);
-    return;
 }
 
 /* ================== FUNÇÕES AUXILIARES PARA DIJKSTRA ================== */
 
 /* Encontra recursivamente o vértice não visitado com menor distância */
-int encontrar_menor_distancia_rec(int distancia[],
-                                  int visitado[],
-                                  int posicao,
-                                  int menor_valor,
-                                  int indice_menor)
+int encontrar_menor_distancia_rec(int distancia[], int visitado[], int posicao, int menor_valor, int indice_menor)
 {
     int resultado;
     int novo_menor_valor;
@@ -325,11 +260,7 @@ int encontrar_menor_distancia_rec(int distancia[],
 
 /* ================== DIJKSTRA COM MATRIZ ================== */
 
-void dijkstra_matriz(int matriz[NUM_ESTADOS][NUM_ESTADOS],
-                     int inicio,
-                     int destino,
-                     int antecessor[],
-                     int distancia[])
+void dijkstra_matriz(int matriz[NUM_ESTADOS][NUM_ESTADOS], int inicio, int destino, int antecessor[], int distancia[])
 {
     int visitado[NUM_ESTADOS];
     int i, j;
@@ -347,11 +278,7 @@ void dijkstra_matriz(int matriz[NUM_ESTADOS][NUM_ESTADOS],
 
     for (i = 0; i < NUM_ESTADOS; i++)
     {
-        indice_menor = encontrar_menor_distancia_rec(distancia,
-                                                     visitado,
-                                                     0,
-                                                     INFINITO,
-                                                     -1);
+        indice_menor = encontrar_menor_distancia_rec(distancia, visitado, 0, INFINITO, -1);
 
         if (indice_menor == -1)
         {
@@ -382,16 +309,11 @@ void dijkstra_matriz(int matriz[NUM_ESTADOS][NUM_ESTADOS],
         }
     }
 
-    return;
 }
 
 /* ================== DIJKSTRA COM LISTA DE ADJACÊNCIA ================== */
 
-void dijkstra_lista(ListaAdj grafo[],
-                    int inicio,
-                    int destino,
-                    int antecessor[],
-                    int distancia[])
+void dijkstra_lista(ListaAdj grafo[], int inicio, int destino, int antecessor[], int distancia[])
 {
     int visitado[NUM_ESTADOS];
     int i, j;
@@ -410,11 +332,7 @@ void dijkstra_lista(ListaAdj grafo[],
 
     for (i = 0; i < NUM_ESTADOS; i++)
     {
-        indice_menor = encontrar_menor_distancia_rec(distancia,
-                                                     visitado,
-                                                     0,
-                                                     INFINITO,
-                                                     -1);
+        indice_menor = encontrar_menor_distancia_rec(distancia, visitado, 0, INFINITO, -1);
 
         if (indice_menor == -1)
         {
@@ -446,8 +364,6 @@ void dijkstra_lista(ListaAdj grafo[],
             }
         }
     }
-
-    return;
 }
 
 /* ================== IMPRESSÃO DE ESTADOS E CAMINHO ================== */
@@ -461,7 +377,6 @@ void imprimir_estado(int vetor_estado[])
         printf("%d ", vetor_estado[i]);
     }
     printf("]\n");
-    return;
 }
 
 void imprimir_caminho_rec(int caminho[], int tamanho, int indice)
@@ -476,7 +391,6 @@ void imprimir_caminho_rec(int caminho[], int tamanho, int indice)
         imprimir_caminho_rec(caminho, tamanho, indice + 1);
     }
 
-    return;
 }
 
 void imprimir_caminho(int antecessor[], int inicio, int destino)
@@ -522,91 +436,4 @@ void imprimir_caminho(int antecessor[], int inicio, int destino)
         printf("Nao foi possivel reconstruir o caminho.\n");
     }
 
-    return;
-}
-
-/* ================== FUNÇÃO PRINCIPAL ================== */
-
-int main()
-{
-    ListaAdj grafo_lista[NUM_ESTADOS];
-    int matriz_adj[NUM_ESTADOS][NUM_ESTADOS];
-
-    int configuracao_inicial[NUM_DISCOS];
-    int configuracao_final[NUM_DISCOS];
-
-    int indice_inicio;
-    int indice_destino;
-
-    int antecessor_lista[NUM_ESTADOS];
-    int distancia_lista[NUM_ESTADOS];
-
-    int antecessor_matriz[NUM_ESTADOS];
-    int distancia_matriz[NUM_ESTADOS];
-
-    int i;
-
-    clock_t tempo_inicio;
-    clock_t tempo_fim;
-    double tempo_lista;
-    double tempo_matriz;
-
-    printf("=== Torre de Hanoi com Grafo (Lista x Matriz) e Dijkstra ===\n\n");
-    printf("Cada configuracao e um vetor de 4 inteiros, onde cada posicao indica o pino do disco.\n");
-    printf("Disco 0 = menor, disco 3 = maior. Pinos possiveis: 0, 1, 2.\n\n");
-
-    /* Constroi grafo em lista de adjacencia */
-    construir_grafo_lista(grafo_lista);
-
-    /* Constroi grafo em matriz de adjacencia (para comparacao) */
-    construir_matriz_adjacencia(matriz_adj);
-
-    printf("Digite a configuracao inicial (pino de cada disco):\n");
-    for (i = 0; i < NUM_DISCOS; i++)
-    {
-        printf("Disco %d (0, 1 ou 2): ", i);
-        scanf("%d", &configuracao_inicial[i]);
-    }
-
-    /* Configuracao final: todos os discos no pino 2 */
-    for (i = 0; i < NUM_DISCOS; i++)
-    {
-        configuracao_final[i] = 2;
-    }
-
-    indice_inicio = codificar_estado(configuracao_inicial);
-    indice_destino = codificar_estado(configuracao_final);
-
-    printf("\nEstado inicial codificado: %d\n", indice_inicio);
-    printf("Estado final codificado  : %d\n\n", indice_destino);
-
-    /* Dijkstra com lista de adjacencia */
-    tempo_inicio = clock();
-    dijkstra_lista(grafo_lista, indice_inicio, indice_destino,
-                   antecessor_lista, distancia_lista);
-    tempo_fim = clock();
-    tempo_lista = (double)(tempo_fim - tempo_inicio) / CLOCKS_PER_SEC;
-
-    /* Dijkstra com matriz de adjacencia */
-    tempo_inicio = clock();
-    dijkstra_matriz(matriz_adj, indice_inicio, indice_destino,
-                    antecessor_matriz, distancia_matriz);
-    tempo_fim = clock();
-    tempo_matriz = (double)(tempo_fim - tempo_inicio) / CLOCKS_PER_SEC;
-
-    if (distancia_lista[indice_destino] >= INFINITO)
-    {
-        printf("Nao existe caminho do estado inicial ao estado final.\n");
-    }
-    else
-    {
-        printf("Menor numero de movimentos (lista):  %d\n", distancia_lista[indice_destino]);
-        printf("Menor numero de movimentos (matriz): %d\n", distancia_matriz[indice_destino]);
-        printf("Tempo Dijkstra (lista) : %f segundos\n", tempo_lista);
-        printf("Tempo Dijkstra (matriz): %f segundos\n", tempo_matriz);
-
-        imprimir_caminho(antecessor_lista, indice_inicio, indice_destino);
-    }
-
-    return 0;
 }
