@@ -1,69 +1,87 @@
 #include <stdio.h>
+#include <stdlib.h>   
 #include <time.h>
 #include "Q01.h"
 
-
-int main()
+int main(void)
 {
-    int matriz_adj[NUM_ESTADOS][NUM_ESTADOS];
+    int ret = 0;
+    int i;
+    
+    int (**pmatriz_adj) = NULL;          
+    int (*matriz_adj)[NUM_ESTADOS] = NULL; 
+
+    int *antecessor = (int*)malloc(sizeof(int) * NUM_ESTADOS);
+    int *distancia  = (int*)malloc(sizeof(int) * NUM_ESTADOS);
+
     int configuracao_inicial[NUM_DISCOS];
     int configuracao_final[NUM_DISCOS];
     int indice_inicio;
     int indice_destino;
-    int antecessor[NUM_ESTADOS];
-    int distancia[NUM_ESTADOS];
-    int i;
 
     clock_t tempo_inicio;
     clock_t tempo_fim;
     double tempo_segundos;
 
-    printf("=== Torre de Hanoi com Grafo e Dijkstra (4 discos) ===\n\n");
-    printf("Cada configuracao sera representada por um vetor de 4 inteiros,\n");
-    printf("onde cada posicao indica o pino do disco:\n");
-    printf("disco 0 = menor, disco 3 = maior.\n");
-    printf("Pinos possiveis: 0, 1, 2.\n\n");
+    int aloc_ok = (antecessor != NULL) && (distancia != NULL);
 
-    /* Monta a matriz de adjacencia do grafo (usando recursao) */
-    montar_matriz_adjacencia(matriz_adj);
-
-    /* Le a configuracao inicial do usuario */
-    printf("Digite a configuracao inicial (pino de cada disco):\n");
-    for (i = 0; i < NUM_DISCOS; i++)
+    if (aloc_ok)
     {
-        printf("Disco %d (0, 1 ou 2): ", i);
-        scanf("%d", &configuracao_inicial[i]);
-    }
+        printf("=== Torre de Hanoi com Grafo (Matriz) e Dijkstra (%d discos) ===\n\n", NUM_DISCOS);
+        printf("Cada configuracao e um vetor de %d inteiros (0..%d).\n", NUM_DISCOS, NUM_PINOS-1);
+        printf("Disco 0 = menor, disco %d = maior.\n\n", NUM_DISCOS - 1);
 
-    /* Define a configuracao final: todos os discos no pino 2 */
-    for (i = 0; i < NUM_DISCOS; i++)
-    {
-        configuracao_final[i] = 2;
-    }
+        construir_grafo_matriz(&pmatriz_adj);
 
-    indice_inicio = codificar_torre(configuracao_inicial);
-    indice_destino = codificar_torre(configuracao_final);
+        /* Le a configuracao inicial do usuario */
+        printf("Digite a configuracao inicial (pino de cada disco):\n");
+        for (i = 0; i < NUM_DISCOS; i++)
+        {
+            printf("Disco %d (0, 1 ou 2): ", i);
+            scanf("%d", &configuracao_inicial[i]);
+        }
 
-    printf("\nIndice da configuracao inicial: %d\n", indice_inicio);
-    printf("Indice da configuracao final  : %d\n\n", indice_destino);
+        /* Configuracao final: todos os discos no pino 2 */
+        for (i = 0; i < NUM_DISCOS; i++)
+        {
+            configuracao_final[i] = 2;
+        }
 
-    /* Mede apenas o tempo do Dijkstra */
-    tempo_inicio = clock();
-    dijkstra(matriz_adj, indice_inicio, indice_destino, antecessor, distancia);
-    tempo_fim = clock();
+        indice_inicio  = codificar_estado(configuracao_inicial);
+        indice_destino = codificar_estado(configuracao_final);
 
-    tempo_segundos = (double)(tempo_fim - tempo_inicio) / CLOCKS_PER_SEC;
+        printf("\nEstado inicial codificado: %d\n", indice_inicio);
+        printf("Estado final codificado  : %d\n\n", indice_destino);
 
-    if (distancia[indice_destino] >= INFINITO)
-    {
-        printf("Nao existe caminho da configuracao inicial ate a final.\n");
+        tempo_inicio = clock();
+
+        dijkstra_matriz(pmatriz_adj, indice_inicio, indice_destino, antecessor, distancia);
+
+        tempo_fim = clock();
+        tempo_segundos = (double)(tempo_fim - tempo_inicio) / CLOCKS_PER_SEC;
+
+        if (distancia[indice_destino] >= INFINITO)
+        {
+            printf("Nao existe caminho da configuracao inicial ate a final.\n");
+        }
+        else
+        {
+            printf("Menor numero de movimentos: %d\n", distancia[indice_destino]);
+            printf("Tempo gasto pelo Dijkstra: %f segundos.\n", tempo_segundos);
+            imprimir_caminho(antecessor, indice_inicio, indice_destino);
+        }
     }
     else
     {
-        printf("Menor numero de movimentos: %d\n", distancia[indice_destino]);
-        printf("Tempo gasto pelo Dijkstra: %f segundos.\n", tempo_segundos);
-        imprimir_caminho(antecessor, indice_inicio, indice_destino);
+        printf("Falha ao alocar memoria para as estruturas principais.\n");
+        ret = 1;
     }
+
+    if (distancia  != NULL) free(distancia);
+    if (antecessor != NULL) free(antecessor);
+
+    if (pmatriz_adj != NULL) liberar_matriz(pmatriz_adj);
+
 
     return 0;
 }

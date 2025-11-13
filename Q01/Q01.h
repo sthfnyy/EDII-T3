@@ -4,25 +4,23 @@
 #define NUM_ESTADOS 81   /* 3^4 */
 #define INFINITO 1000000
 
+void decodificar_estado_rec(int indice, int posicao, int vetor_estado[]);
+void decodificar_estado(int indice, int vetor_estado[]);
+int  codificar_estado_rec(int posicao, int vetor_estado[], int multiplicador);
+int  codificar_estado(int vetor_estado[]);
+int  encontrar_topo_pino(int vetor_estado[], int pino);
 
-void decodificar_torre(int indice, int pinos_dos_discos[]);
-int  codificar_torre(int pinos_dos_discos[]);
-void decodificar_torre_rec(int indice, int posicao, int pinos_dos_discos[]);
-int  codificar_torre_rec(int posicao, int pinos_dos_discos[], int multiplicador);
+int  alocar_matriz(int ***pmatriz);
+void liberar_matriz(int **matriz);
+void inicializar_matriz_rec(int **matriz, int linha, int coluna);
 
-/* torre / pinos */
-int  encontrar_topo_pino(int pinos_dos_discos[], int pino);
+void construir_grafo_matriz_rec(int **matriz, int indice_estado);
+void construir_grafo_matriz(int ***pmatriz); /* aloca, zera e preenche */
 
-/* matriz de adjacência */
-void zerar_matriz_rec(int matriz[NUM_ESTADOS][NUM_ESTADOS], int linha, int coluna);
-void montar_matriz_adjacencia(int matriz[NUM_ESTADOS][NUM_ESTADOS]);
-void preencher_matriz_adjacencia_rec(int matriz[NUM_ESTADOS][NUM_ESTADOS], int indice_torre);
+int  encontrar_menor_distancia_rec(int distancia[], int visitado[], int posicao, int menor_valor, int indice_menor);
 
-/* dijkstra */
-int  escolher_proximo_vertice_rec(int distancia[], int visitado[],
-                                   int posicao, int menor_valor, int indice_menor);
-void dijkstra(int matriz[NUM_ESTADOS][NUM_ESTADOS], int inicio, int destino, int antecessor[], int distancia[]);
+void dijkstra_matriz(int **matriz, int inicio, int destino, int antecessor[], int distancia[]);
 
-void imprimir_torre(int pinos_dos_discos[]);
-void imprimir_caminho(int antecessor[], int inicio, int destino);
+void imprimir_estado(int vetor_estado[]);
 void imprimir_caminho_rec(int caminho[], int tamanho, int indice);
+void imprimir_caminho(int antecessor[], int inicio, int destino);
