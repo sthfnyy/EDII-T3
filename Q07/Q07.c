@@ -2,16 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "Q07.h"
 
-#define TOTAL_ALUNOS 4000
-
-typedef struct {
-    char matricula[12]; /* 11 dígitos + '\0' */
-    int ocupado;        /* 0 = vazio, 1 = ocupado */
-} RegistroAluno;
 
 /* Converte string de matrícula em vetor de dígitos (0..10) */
-void extrair_digitos(const char *matricula, int digitos[11]) {
+void extrair_digitos(const char *matricula, int digitos[11]) 
+{
     int i;
     for (i = 0; i < 11; i++) {
         digitos[i] = matricula[i] - '0';
@@ -23,7 +19,8 @@ void extrair_digitos(const char *matricula, int digitos[11]) {
    - Extrai 2o, 4o e 5o dígitos da matrícula rotacionada -> número de 3 dígitos.
    - Resto da divisão pelo tamanho do vetor.
    - Passo para colisão = 1o dígito da matrícula rotacionada (se 0, usa 1). */
-int hash_a(const char *matricula, int tamanho, int *passo_out) {
+int hash_a(const char *matricula, int tamanho, int *passo_out) 
+{
     int dig[11];
     int rot[11];
     int val;
@@ -65,7 +62,8 @@ int hash_a(const char *matricula, int tamanho, int *passo_out) {
      soma = grupo1 + grupo2, depois resto da divisão pelo tamanho.
    - Passo para colisão: número formado pelo 6o e 11o dígitos.
 */
-int hash_b(const char *matricula, int tamanho, int *passo_out) {
+int hash_b(const char *matricula, int tamanho, int *passo_out) 
+{
     int dig[11];
     int g1, g2;
     int val;
@@ -89,7 +87,8 @@ int hash_b(const char *matricula, int tamanho, int *passo_out) {
 }
 
 /* Zera a tabela de hashing */
-void inicializar_tabela(RegistroAluno *tabela, int tamanho) {
+void inicializar_tabela(RegistroAluno *tabela, int tamanho) 
+{
     int i;
     for (i = 0; i < tamanho; i++) {
         tabela[i].ocupado = 0;
@@ -99,8 +98,7 @@ void inicializar_tabela(RegistroAluno *tabela, int tamanho) {
 
 /* Insere um aluno usando a função (a) e trata colisão como descrito.
    Conta colisões no ponteiro colisoes_totais. */
-void inserir_hash_a(RegistroAluno *tabela, int tamanho,
-                    const char *matricula, int *colisoes_totais) {
+void inserir_hash_a(RegistroAluno *tabela, int tamanho, const char *matricula, int *colisoes_totais) {
     int passo;
     int indice_base;
     int indice;
@@ -111,7 +109,8 @@ void inserir_hash_a(RegistroAluno *tabela, int tamanho,
     tentativas = 0;
 
     /* probing até achar posição livre ou dar a volta na tabela */
-    while (tentativas < tamanho && tabela[indice].ocupado) {
+    while (tentativas < tamanho && tabela[indice].ocupado)
+    {
         (*colisoes_totais)++;
         indice = (indice + passo) % tamanho;
         tentativas++;
@@ -127,8 +126,8 @@ void inserir_hash_a(RegistroAluno *tabela, int tamanho,
 }
 
 /* Insere um aluno usando a função (b) e trata colisão como descrito. */
-void inserir_hash_b(RegistroAluno *tabela, int tamanho,
-                    const char *matricula, int *colisoes_totais) {
+void inserir_hash_b(RegistroAluno *tabela, int tamanho, const char *matricula, int *colisoes_totais) {
+    
     int passo;
     int indice_base;
     int indice;
@@ -156,7 +155,8 @@ void inserir_hash_b(RegistroAluno *tabela, int tamanho,
    - 4 dígitos: ano (2010..2024)
    - 1 dígito: curso (1..9)
    - 6 dígitos: número do aluno (000000..003999) */
-void gerar_matriculas(char matriculas[TOTAL_ALUNOS][12]) {
+void gerar_matriculas(char matriculas[TOTAL_ALUNOS][12]) 
+{
     int i;
     for (i = 0; i < TOTAL_ALUNOS; i++) {
         int ano = 2010 + (i % 15);  /* 2010..2024 */
@@ -170,7 +170,8 @@ void gerar_matriculas(char matriculas[TOTAL_ALUNOS][12]) {
    - insere os 4000 alunos 30 vezes com hashing (a)
    - insere os 4000 alunos 30 vezes com hashing (b)
    - calcula tempo médio e colisões médias */
-void experimentar_tamanho(int tamanho, char matriculas[TOTAL_ALUNOS][12]) {
+void experimentar_tamanho(int tamanho, char matriculas[TOTAL_ALUNOS][12])
+{
     RegistroAluno *tabela;
     int repeticao;
     double tempo_total_a = 0.0;
@@ -224,30 +225,3 @@ void experimentar_tamanho(int tamanho, char matriculas[TOTAL_ALUNOS][12]) {
         printf("Erro ao alocar tabela de tamanho %d\n", tamanho);
     }
 }
-
-/* ---------- Programa principal ---------- */
-int main() {
-    char matriculas[TOTAL_ALUNOS][12];
-
-    gerar_matriculas(matriculas);
-
-    /* Tamanho 1211 (vetor destino 1211 posições) */
-    experimentar_tamanho(1211, matriculas);
-
-    /* Tamanho 1280 (vetor destino 1280 posições) */
-    experimentar_tamanho(1280, matriculas);
-
-    return 0;
-}
-
-
-/*
-=== Resultados para tamanho da tabela = 1211 ===
-Hash (a): tempo medio = 0.005123 s, colisoes medias = 7800.50
-Hash (b): tempo medio = 0.004732 s, colisoes medias = 6500.20
-
-=== Resultados para tamanho da tabela = 1280 ===
-Hash (a): tempo medio = 0.004890 s, colisoes medias = 7200.30
-Hash (b): tempo medio = 0.004500 s, colisoes medias = 6000.10
-
-*/

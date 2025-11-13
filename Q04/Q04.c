@@ -38,9 +38,7 @@ int converter_texto_para_posicao(const char *texto, int *coluna, int *linha) {
     return resultado;
 }
 
-/* ---------- Manipulação da lista de adjacência ---------- */
 
-/* Apaga todas as dependências de uma célula (libera a lista ligada) */
 void limpar_dependencias(Celula *planilha, int indice_origem) {
     NodoAdjacencia *atual;
     NodoAdjacencia *proximo;
@@ -52,10 +50,9 @@ void limpar_dependencias(Celula *planilha, int indice_origem) {
         atual = proximo;
     }
     planilha[indice_origem].lista_dependencias = NULL;
-
 }
 
-/* Adiciona uma aresta: origem -> destino (origem depende de destino) */
+
 void adicionar_dependencia(Celula *planilha, int indice_origem, int indice_destino) {
     NodoAdjacencia *novo;
 
@@ -68,10 +65,8 @@ void adicionar_dependencia(Celula *planilha, int indice_origem, int indice_desti
 
 }
 
-/* ---------- Avaliação recursiva das células ---------- */
-
-double avaliar_celula(Celula *planilha, int indice,
-                      int *em_calculo, int *calculado) {
+double avaliar_celula(Celula *planilha, int indice, int *em_calculo, int *calculado) 
+{
     double resultado;
     Celula *cel;
     int tipo;
@@ -167,7 +162,6 @@ double avaliar_celula(Celula *planilha, int indice,
     return resultado;
 }
 
-/* Recalcula a planilha inteira chamando avaliar_celula recursivamente */
 void recalcular_planilha(Celula *planilha) {
     int *em_calculo;
     int *calculado;
@@ -191,7 +185,6 @@ void recalcular_planilha(Celula *planilha) {
 
 }
 
-/* ---------- Impressão ---------- */
 
 void imprimir_planilha(Celula *planilha) {
     int linha;
@@ -215,7 +208,7 @@ void imprimir_planilha(Celula *planilha) {
 
 }
 
-/* Libera todas as listas de adjacência da planilha */
+
 void liberar_todas_listas(Celula *planilha) {
     int i;
 

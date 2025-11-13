@@ -10,9 +10,9 @@
 #define TIPO_MIN       5
 #define TIPO_MEDIA     6
 
-/* Nó da lista de adjacência: indica uma dependência da célula */
+
 typedef struct NodoAdjacencia {
-    int indice_destino;                 /* índice da célula da qual depende */
+    int indice_destino;                
     struct NodoAdjacencia *proximo;
 } NodoAdjacencia;
 
@@ -20,10 +20,9 @@ typedef struct NodoAdjacencia {
 typedef struct {
     int tipo;
     double valor_constante;
-    double valor_cache;                 /* valor já calculado */
-    NodoAdjacencia *lista_dependencias; /* lista de adjacência */
+    double valor_cache;                 
+    NodoAdjacencia *lista_dependencias;
 } Celula;
-
 
 
 int converter_texto_para_posicao(const char *texto, int *coluna, int *linha);
