@@ -4,7 +4,6 @@
 #include "Q04.h"
 
 
-
 int converter_texto_para_posicao(const char *texto, int *coluna, int *linha) {
     int resultado;
     int pos;
