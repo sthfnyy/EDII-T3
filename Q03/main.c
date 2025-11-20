@@ -25,11 +25,6 @@ int main() {
         }
 
         printf("Planilha rudimentar (colunas A..H, linhas 1..20).\n");
-        printf("Comandos: CELULA VALOR\n");
-        printf("Exemplos: A1 10\n");
-        printf("          B1 =A1\n");
-        printf("          C1 @soma(A1..B2)\n");
-        printf("Funcoes: @soma, @max, @min, @media\n");
         printf("Digite FIM para encerrar a entrada e mostrar a planilha.\n\n");
 
         while (continuar) {
@@ -40,7 +35,6 @@ int main() {
             int linha;
             int indice_celula;
 
-            printf("> ");
             if (fgets(linha_entrada, sizeof(linha_entrada), stdin) == NULL) {
                 continuar = 0;
             } else {
@@ -99,6 +93,11 @@ int main() {
                                                                          &col_i, &linha_i) == 0 &&
                                             converter_texto_para_posicao(texto_fim,
                                                                          &col_f, &linha_f) == 0) {
+
+                                            // printf("função %s de %s a %s\n",
+                                            //        nome_funcao,
+                                            //        texto_inicio,
+                                            //        texto_fim);
 
                                             if (strcmp(nome_funcao, "soma") == 0) {
                                                 cel->tipo = TIPO_SOMA;
