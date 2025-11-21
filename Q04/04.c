@@ -34,9 +34,15 @@ typedef struct {
     int indice_fim_intervalo;
 } Celula;
 
+/* Nó da lista de dependências: quem EU dependo */
+typedef struct NoDependencia {
+    int indice_celula_dependida;
+    struct NoDependencia* prox;
+} NoDependencia;
+
 typedef struct {
     Celula* vetor_celulas;
-    int** matriz_dependencias;
+    NoDependencia** listas_dependencias;  /* lista de dependências por célula */
 } Planilha;
 
 typedef struct {
@@ -165,12 +171,12 @@ int ConverterCoordenadaParaIndice(const char* texto_coordenada) {
     return indice_resultado;
 }
 
-/* ---------------------- Dependências (grafo) ---------------------- */
+/* ---------------------- Dependências (LISTA) ---------------------- */
 
 int DependenciasIndicesValidos(Planilha* plan, int dep, int ref) {
     int valido = 0;
     if (plan != NULL &&
-        plan->matriz_dependencias != NULL &&
+        plan->listas_dependencias != NULL &&
         IndiceCelulaValido(dep) == 1 &&
         IndiceCelulaValido(ref) == 1) {
         valido = 1;
@@ -178,29 +184,59 @@ int DependenciasIndicesValidos(Planilha* plan, int dep, int ref) {
     return valido;
 }
 
+/* evita duplicar a mesma dependência na lista */
+int DependenciaJaExiste(NoDependencia* lista, int ref) {
+    int existe = 0;
+    NoDependencia* no_atual = lista;
+
+    while (no_atual != NULL && existe == 0) {
+        if (no_atual->indice_celula_dependida == ref) {
+            existe = 1;
+        }
+        no_atual = no_atual->prox;
+    }
+
+    return existe;
+}
+
 void AdicionarDependencia(Planilha* plan, int dep, int ref) {
     int ok = DependenciasIndicesValidos(plan, dep, ref);
+
     if (ok == 1) {
-        plan->matriz_dependencias[dep][ref] = 1;
+        NoDependencia* lista = plan->listas_dependencias[dep];
+        int ja_existe = DependenciaJaExiste(lista, ref);
+
+        if (ja_existe == 0) {
+            NoDependencia* novo_no = (NoDependencia*)malloc(sizeof(NoDependencia));
+            if (novo_no != NULL) {
+                novo_no->indice_celula_dependida = ref;
+                novo_no->prox = plan->listas_dependencias[dep];
+                plan->listas_dependencias[dep] = novo_no;
+            }
+        }
     }
 }
 
 void RemoverDependencias(Planilha* plan, int indice_cel) {
     int ok = 0;
-    int c = 0;
 
     if (plan != NULL &&
-        plan->matriz_dependencias != NULL &&
+        plan->listas_dependencias != NULL &&
         IndiceCelulaValido(indice_cel) == 1) {
         ok = 1;
     }
 
     if (ok == 1) {
-        c = 0;
-        while (c < TOTAL_CELULAS) {
-            plan->matriz_dependencias[indice_cel][c] = 0;
-            c++;
+        NoDependencia* atual = plan->listas_dependencias[indice_cel];
+        NoDependencia* prox_no = NULL;
+
+        while (atual != NULL) {
+            prox_no = atual->prox;
+            free(atual);
+            atual = prox_no;
         }
+
+        plan->listas_dependencias[indice_cel] = NULL;
     }
 }
 
@@ -227,6 +263,7 @@ void CopiarExpressaoParaCelula(Celula* cel, const char* txt_expr) {
 
 int ProcessarExpressaoNumerica(Celula* cel, const char* txt_expr) {
     int resultado = 0;
+
     if (cel != NULL && TextoNaoVazio(txt_expr) == 1) {
         char c0 = txt_expr[0];
         int inicio_numerico = 0;
@@ -253,6 +290,7 @@ int ProcessarExpressaoNumerica(Celula* cel, const char* txt_expr) {
 
 int ProcessarExpressaoReferencia(Planilha* plan, Celula* cel, int indice_cel, const char* txt_expr) {
     int resultado = 0;
+
     if (plan != NULL && cel != NULL &&
         TextoNaoVazio(txt_expr) == 1 && txt_expr[0] == '=') {
 
@@ -412,7 +450,7 @@ double AvaliarCelula(Planilha* plan, int indice_cel) {
         } else if (cel->tipo_conteudo == TIPO_CONTEUDO_REFERENCIA) {
             valor = AvaliarCelula(plan, cel->indice_referencia);
         } else if (cel->tipo_conteudo == TIPO_CONTEUDO_FUNCAO) {
-            valor = 0.0; /* será calculado em CalcularFuncao quando for exibido */
+            valor = 0.0; /* o valor real será calculado em CalcularFuncao */
         } else {
             valor = 0.0;
         }
@@ -424,6 +462,7 @@ double AvaliarCelula(Planilha* plan, int indice_cel) {
 
 double CalcularFuncao(Planilha* plan, int indice_cel_funcao) {
     double valor_resultado = 0.0;
+
     if (plan != NULL && IndiceCelulaValido(indice_cel_funcao) == 1) {
         Celula* cel_f = &(plan->vetor_celulas[indice_cel_funcao]);
         int indice_inicio = cel_f->indice_inicio_intervalo;
@@ -529,7 +568,7 @@ void ExibirPlanilha(Planilha* plan) {
 Planilha* InicializarPlanilha() {
     Planilha* plan = (Planilha*)malloc(sizeof(Planilha));
     int memoria_ok = 1;
-    int i, j;
+    int i;
 
     if (plan == NULL) {
         memoria_ok = 0;
@@ -537,12 +576,13 @@ Planilha* InicializarPlanilha() {
 
     if (memoria_ok == 1) {
         plan->vetor_celulas = (Celula*)malloc(TOTAL_CELULAS * sizeof(Celula));
-        plan->matriz_dependencias = (int**)malloc(TOTAL_CELULAS * sizeof(int*));
-        if (plan->vetor_celulas == NULL || plan->matriz_dependencias == NULL) {
+        plan->listas_dependencias = (NoDependencia**)malloc(TOTAL_CELULAS * sizeof(NoDependencia*));
+
+        if (plan->vetor_celulas == NULL || plan->listas_dependencias == NULL) {
             memoria_ok = 0;
         } else {
             for (i = 0; i < TOTAL_CELULAS; i++) {
-                plan->matriz_dependencias[i] = NULL;
+                plan->listas_dependencias[i] = NULL;
             }
         }
     }
@@ -557,29 +597,13 @@ Planilha* InicializarPlanilha() {
             plan->vetor_celulas[i].indice_inicio_intervalo = 0;
             plan->vetor_celulas[i].indice_fim_intervalo = 0;
         }
-
-        for (i = 0; i < TOTAL_CELULAS && memoria_ok == 1; i++) {
-            plan->matriz_dependencias[i] = (int*)malloc(TOTAL_CELULAS * sizeof(int));
-            if (plan->matriz_dependencias[i] == NULL) {
-                memoria_ok = 0;
-            } else {
-                for (j = 0; j < TOTAL_CELULAS; j++) {
-                    plan->matriz_dependencias[i][j] = 0;
-                }
-            }
-        }
     }
 
     if (memoria_ok == 0) {
         printf("Erro ao alocar memoria para a planilha.\n");
         if (plan != NULL) {
-            if (plan->matriz_dependencias != NULL) {
-                for (i = 0; i < TOTAL_CELULAS; i++) {
-                    if (plan->matriz_dependencias[i] != NULL) {
-                        free(plan->matriz_dependencias[i]);
-                    }
-                }
-                free(plan->matriz_dependencias);
+            if (plan->listas_dependencias != NULL) {
+                free(plan->listas_dependencias);
             }
             if (plan->vetor_celulas != NULL) {
                 free(plan->vetor_celulas);
@@ -588,23 +612,25 @@ Planilha* InicializarPlanilha() {
             plan = NULL;
         }
     }
+
     return plan;
 }
 
 void LiberarPlanilha(Planilha* plan) {
     int i = 0;
+
     if (plan != NULL) {
-        if (plan->matriz_dependencias != NULL) {
+        if (plan->listas_dependencias != NULL) {
             for (i = 0; i < TOTAL_CELULAS; i++) {
-                if (plan->matriz_dependencias[i] != NULL) {
-                    free(plan->matriz_dependencias[i]);
-                }
+                RemoverDependencias(plan, i); /* já libera os nós da lista */
             }
-            free(plan->matriz_dependencias);
+            free(plan->listas_dependencias);
         }
+
         if (plan->vetor_celulas != NULL) {
             free(plan->vetor_celulas);
         }
+
         free(plan);
     }
 }

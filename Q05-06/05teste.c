@@ -1,8 +1,79 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "Q03.h"
+#include <time.h>   /* para medir tempo */
 
+#define TOTAL_COLUNAS 8
+#define TOTAL_LINHAS 20
+#define TOTAL_CELULAS (TOTAL_COLUNAS * TOTAL_LINHAS)
+#define TAMANHO_MAX_EXPRESSAO 64
+#define VALOR_PADRAO 0.0
+
+typedef enum {
+    TIPO_CONTEUDO_NUMERO,
+    TIPO_CONTEUDO_REFERENCIA,
+    TIPO_CONTEUDO_FUNCAO,
+    TIPO_CONTEUDO_VAZIA
+} TipoConteudo;
+
+typedef enum {
+    TIPO_FUNCAO_NENHUMA,
+    TIPO_FUNCAO_SOMA,
+    TIPO_FUNCAO_MAX,
+    TIPO_FUNCAO_MIN,
+    TIPO_FUNCAO_MEDIA
+} TipoFuncao;
+
+/* Lista de adjacência: dependências de uma célula */
+typedef struct NodoAdjacencia {
+    int indice_destino;
+    struct NodoAdjacencia *proximo;
+} NodoAdjacencia;
+
+typedef struct {
+    TipoConteudo tipo_conteudo;
+    double valor_numerico;
+    char texto_expressao[TAMANHO_MAX_EXPRESSAO];
+
+    int indice_referencia;
+
+    TipoFuncao tipo_funcao;
+    int indice_inicio_intervalo;
+    int indice_fim_intervalo;
+
+    NodoAdjacencia *lista_dependencias; /* lista de dependências */
+} Celula;
+
+typedef struct {
+    Celula* vetor_celulas;
+} Planilha;
+
+/* Protótipos principais */
+char* ConverterIndiceParaCoordenada(int indice_celula, char* texto_coordenada);
+int   ConverterCoordenadaParaIndice(const char* texto_coordenada);
+void  AdicionarDependencia(Planilha* ponteiro_planilha, int indice_dependente, int indice_dependencia);
+void  RemoverDependencias(Planilha* ponteiro_planilha, int indice_celula);
+int   AnalisarExpressao(Planilha* ponteiro_planilha, int indice_celula, const char* texto_expressao);
+double AvaliarCelula(Planilha* ponteiro_planilha, int indice_celula);
+double CalcularFuncao(Planilha* ponteiro_planilha, int indice_celula_funcao);
+void  ExibirPlanilha(Planilha* ponteiro_planilha);
+Planilha* InicializarPlanilha();
+void  LiberarPlanilha(Planilha* ponteiro_planilha);
+void  LoopPrincipal(Planilha* ponteiro_planilha);
+
+/* Busca (exercício 5) */
+void ImprimirNomeCelula(int indice_celula);
+void BuscaProfundidade(Planilha *ponteiro_planilha, int indice_inicial);
+void BuscaLargura(Planilha *ponteiro_planilha, int indice_inicial);
+
+/* Versões silenciosas para medir tempo */
+void BuscaProfundidade_Simples(Planilha *ponteiro_planilha, int indice_inicial);
+void BuscaLargura_Simples(Planilha *ponteiro_planilha, int indice_inicial);
+
+/* Medição de tempos (exercício 6) */
+void MedirTempoInsercao(Planilha *planilha_origem, int repeticoes);
+void MedirTempoDFS(Planilha *planilha, int indice_inicial, int repeticoes);
+void MedirTempoBFS(Planilha *planilha, int indice_inicial, int repeticoes);
 
 /* -------------------------------------------------- */
 /* Conversão de índice <-> coordenada                 */
@@ -66,44 +137,22 @@ int ConverterCoordenadaParaIndice(const char* texto_coordenada) {
 }
 
 /* -------------------------------------------------- */
-/* Grafo (matriz de dependências)                     */
+/* Grafo (listas de adjacências)                      */
 /* -------------------------------------------------- */
 
-void AdicionarDependencia(Planilha* ponteiro_planilha, int indice_dependente, int indice_dependencia) {
+void AdicionarDependencia(Planilha* ponteiro_planilha,
+                          int indice_dependente,
+                          int indice_dependencia)
+{
     int indices_validos;
+    NodoAdjacencia *novo;
 
     indices_validos = 0;
 
     if (ponteiro_planilha != NULL) {
-        if (ponteiro_planilha->matriz_dependencias != NULL) {
-            if (indice_dependente >= 0) {
-                if (indice_dependente < TOTAL_CELULAS) {
-                    if (indice_dependencia >= 0) {
-                        if (indice_dependencia < TOTAL_CELULAS) {
-                            indices_validos = 1;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (indices_validos == 1) {
-        ponteiro_planilha->matriz_dependencias[indice_dependente][indice_dependencia] = 1;
-    }
-}
-
-void RemoverDependencias(Planilha* ponteiro_planilha, int indice_celula) {
-    int indice_coluna;
-    int indices_validos;
-
-    indices_validos = 0;
-    indice_coluna = 0;
-
-    if (ponteiro_planilha != NULL) {
-        if (ponteiro_planilha->matriz_dependencias != NULL) {
-            if (indice_celula >= 0) {
-                if (indice_celula < TOTAL_CELULAS) {
+        if (ponteiro_planilha->vetor_celulas != NULL) {
+            if (indice_dependente >= 0 && indice_dependente < TOTAL_CELULAS) {
+                if (indice_dependencia >= 0 && indice_dependencia < TOTAL_CELULAS) {
                     indices_validos = 1;
                 }
             }
@@ -111,10 +160,46 @@ void RemoverDependencias(Planilha* ponteiro_planilha, int indice_celula) {
     }
 
     if (indices_validos == 1) {
-        while (indice_coluna < TOTAL_CELULAS) {
-            ponteiro_planilha->matriz_dependencias[indice_celula][indice_coluna] = 0;
-            indice_coluna = indice_coluna + 1;
+        novo = (NodoAdjacencia *)malloc(sizeof(NodoAdjacencia));
+        if (novo != NULL) {
+            novo->indice_destino = indice_dependencia;
+            novo->proximo = ponteiro_planilha
+                                ->vetor_celulas[indice_dependente]
+                                .lista_dependencias;
+            ponteiro_planilha
+                ->vetor_celulas[indice_dependente]
+                .lista_dependencias = novo;
         }
+    }
+}
+
+void RemoverDependencias(Planilha* ponteiro_planilha, int indice_celula) {
+    int indices_validos;
+    NodoAdjacencia *atual;
+    NodoAdjacencia *proximo;
+
+    indices_validos = 0;
+
+    if (ponteiro_planilha != NULL) {
+        if (ponteiro_planilha->vetor_celulas != NULL) {
+            if (indice_celula >= 0 && indice_celula < TOTAL_CELULAS) {
+                indices_validos = 1;
+            }
+        }
+    }
+
+    if (indices_validos == 1) {
+        atual = ponteiro_planilha
+                    ->vetor_celulas[indice_celula]
+                    .lista_dependencias;
+        while (atual != NULL) {
+            proximo = atual->proximo;
+            free(atual);
+            atual = proximo;
+        }
+        ponteiro_planilha
+            ->vetor_celulas[indice_celula]
+            .lista_dependencias = NULL;
     }
 }
 
@@ -421,12 +506,11 @@ double CalcularFuncao(Planilha* ponteiro_planilha, int indice_celula_funcao) {
             if (indice_atual != indice_celula_funcao) {
                 celula_atual = &(ponteiro_planilha->vetor_celulas[indice_atual]);
 
-                /* IGNORA células vazias em min/max/media e ignora funções para evitar ciclos entre funções */
                 if (celula_atual->tipo_conteudo == TIPO_CONTEUDO_VAZIA) {
-                    /* não faz nada */
+                    /* ignora vazia */
                 } else {
                     if (celula_atual->tipo_conteudo == TIPO_CONTEUDO_FUNCAO) {
-                        /* para simplificar, não usamos o valor de outras funções dentro de funções grandes */
+                        /* ignora outras funções dentro da função, para simplificar */
                     } else {
                         valor_atual = AvaliarCelula(ponteiro_planilha, indice_atual);
 
@@ -511,25 +595,23 @@ void ExibirPlanilha(Planilha* ponteiro_planilha) {
     int indice_separador;
     double valor_celula;
 
-    printf("\n+");
+    printf("\n");
     indice_separador = 0;
     while (indice_separador < TOTAL_COLUNAS) {
-        printf("----------+");
         indice_separador = indice_separador + 1;
     }
 
     printf("\n|   \\ C  | A        | B        | C        | D        | E        | F        | G        | H        |");
 
-    printf("\n+");
+    printf("\n");
     indice_separador = 0;
     while (indice_separador < TOTAL_COLUNAS) {
-        printf("----------+");
         indice_separador = indice_separador + 1;
     }
 
     indice_linha = 0;
     while (indice_linha < TOTAL_LINHAS) {
-        printf("\n| R %02d   |", indice_linha + 1);
+        printf("\n| %02d   |", indice_linha + 1);
 
         indice_coluna = 0;
         while (indice_coluna < TOTAL_COLUNAS) {
@@ -539,10 +621,8 @@ void ExibirPlanilha(Planilha* ponteiro_planilha) {
             indice_coluna = indice_coluna + 1;
         }
 
-        printf("\n+");
         indice_separador = 0;
         while (indice_separador < TOTAL_COLUNAS) {
-            printf("----------+");
             indice_separador = indice_separador + 1;
         }
 
@@ -560,8 +640,6 @@ Planilha* InicializarPlanilha() {
     Planilha* ponteiro_planilha;
     int memoria_ok;
     int indice;
-    int indice_linha;
-    int indice_coluna;
 
     ponteiro_planilha = NULL;
     memoria_ok = 1;
@@ -572,23 +650,10 @@ Planilha* InicializarPlanilha() {
     }
 
     if (memoria_ok == 1) {
-        ponteiro_planilha->vetor_celulas = (Celula*)malloc(TOTAL_CELULAS * sizeof(Celula));
-        ponteiro_planilha->matriz_dependencias = (int**)malloc(TOTAL_CELULAS * sizeof(int*));
-
+        ponteiro_planilha->vetor_celulas =
+            (Celula*)malloc(TOTAL_CELULAS * sizeof(Celula));
         if (ponteiro_planilha->vetor_celulas == NULL) {
             memoria_ok = 0;
-        }
-
-        if (ponteiro_planilha->matriz_dependencias == NULL) {
-            memoria_ok = 0;
-        }
-
-        if (ponteiro_planilha->matriz_dependencias != NULL) {
-            indice = 0;
-            while (indice < TOTAL_CELULAS) {
-                ponteiro_planilha->matriz_dependencias[indice] = NULL;
-                indice = indice + 1;
-            }
         }
     }
 
@@ -602,24 +667,8 @@ Planilha* InicializarPlanilha() {
             ponteiro_planilha->vetor_celulas[indice].tipo_funcao = TIPO_FUNCAO_NENHUMA;
             ponteiro_planilha->vetor_celulas[indice].indice_inicio_intervalo = 0;
             ponteiro_planilha->vetor_celulas[indice].indice_fim_intervalo = 0;
+            ponteiro_planilha->vetor_celulas[indice].lista_dependencias = NULL;
             indice = indice + 1;
-        }
-
-        indice_linha = 0;
-        while (indice_linha < TOTAL_CELULAS) {
-            if (ponteiro_planilha->matriz_dependencias[indice_linha] == NULL) {
-                ponteiro_planilha->matriz_dependencias[indice_linha] = (int*)malloc(TOTAL_CELULAS * sizeof(int));
-                if (ponteiro_planilha->matriz_dependencias[indice_linha] == NULL) {
-                    memoria_ok = 0;
-                } else {
-                    indice_coluna = 0;
-                    while (indice_coluna < TOTAL_CELULAS) {
-                        ponteiro_planilha->matriz_dependencias[indice_linha][indice_coluna] = 0;
-                        indice_coluna = indice_coluna + 1;
-                    }
-                }
-            }
-            indice_linha = indice_linha + 1;
         }
     }
 
@@ -633,28 +682,352 @@ Planilha* InicializarPlanilha() {
 }
 
 void LiberarPlanilha(Planilha* ponteiro_planilha) {
-    int indice_linha;
+    int indice;
+    NodoAdjacencia *atual;
+    NodoAdjacencia *proximo;
 
     if (ponteiro_planilha != NULL) {
-        if (ponteiro_planilha->matriz_dependencias != NULL) {
-            indice_linha = 0;
-            while (indice_linha < TOTAL_CELULAS) {
-                if (ponteiro_planilha->matriz_dependencias[indice_linha] != NULL) {
-                    free(ponteiro_planilha->matriz_dependencias[indice_linha]);
-                    ponteiro_planilha->matriz_dependencias[indice_linha] = NULL;
-                }
-                indice_linha = indice_linha + 1;
-            }
-            free(ponteiro_planilha->matriz_dependencias);
-            ponteiro_planilha->matriz_dependencias = NULL;
-        }
-
         if (ponteiro_planilha->vetor_celulas != NULL) {
+            indice = 0;
+            while (indice < TOTAL_CELULAS) {
+                atual = ponteiro_planilha
+                            ->vetor_celulas[indice]
+                            .lista_dependencias;
+                while (atual != NULL) {
+                    proximo = atual->proximo;
+                    free(atual);
+                    atual = proximo;
+                }
+                ponteiro_planilha->vetor_celulas[indice].lista_dependencias = NULL;
+                indice = indice + 1;
+            }
             free(ponteiro_planilha->vetor_celulas);
             ponteiro_planilha->vetor_celulas = NULL;
         }
 
         free(ponteiro_planilha);
+    }
+}
+
+/* -------------------------------------------------- */
+/* Imprimir nome de célula (ex: 0 -> A1)              */
+/* -------------------------------------------------- */
+
+void ImprimirNomeCelula(int indice_celula)
+{
+    char texto[16];
+    if (ConverterIndiceParaCoordenada(indice_celula, texto) != NULL) {
+        printf("%s", texto);
+    } else {
+        printf("?(%d)", indice_celula);
+    }
+}
+
+/* -------------------------------------------------- */
+/* DFS (busca em profundidade) - com impressão        */
+/* -------------------------------------------------- */
+
+void DFS_Recursivo(Planilha *ponteiro_planilha,
+                   int indice_atual,
+                   int *vetor_visitado)
+{
+    NodoAdjacencia *atual;
+
+    vetor_visitado[indice_atual] = 1;
+
+    printf("Visitando (DFS): ");
+    ImprimirNomeCelula(indice_atual);
+    printf("\n");
+
+    atual = ponteiro_planilha
+                ->vetor_celulas[indice_atual]
+                .lista_dependencias;
+
+    while (atual != NULL) {
+        if (!vetor_visitado[atual->indice_destino]) {
+            DFS_Recursivo(ponteiro_planilha,
+                          atual->indice_destino,
+                          vetor_visitado);
+        }
+        atual = atual->proximo;
+    }
+}
+
+void BuscaProfundidade(Planilha *ponteiro_planilha, int indice_inicial)
+{
+    int *vetor_visitado;
+    int i;
+
+    vetor_visitado = (int *)malloc(TOTAL_CELULAS * sizeof(int));
+    if (vetor_visitado != NULL) {
+        for (i = 0; i < TOTAL_CELULAS; i++) {
+            vetor_visitado[i] = 0;
+        }
+
+        printf("\n=== BUSCA EM PROFUNDIDADE (DFS) a partir de ");
+        ImprimirNomeCelula(indice_inicial);
+        printf(" ===\n");
+
+        DFS_Recursivo(ponteiro_planilha, indice_inicial, vetor_visitado);
+
+        free(vetor_visitado);
+    } else {
+        printf("Erro ao alocar memoria para DFS.\n");
+    }
+}
+
+/* -------------------------------------------------- */
+/* BFS (busca em largura) - com impressão             */
+/* -------------------------------------------------- */
+
+void BuscaLargura(Planilha *ponteiro_planilha, int indice_inicial)
+{
+    int *vetor_visitado;
+    int *fila;
+    int inicio;
+    int fim;
+    int atual_indice;
+    int i;
+    NodoAdjacencia *atual;
+
+    vetor_visitado = (int *)malloc(TOTAL_CELULAS * sizeof(int));
+    fila = (int *)malloc(TOTAL_CELULAS * sizeof(int));
+
+    if (vetor_visitado != NULL && fila != NULL) {
+        for (i = 0; i < TOTAL_CELULAS; i++) {
+            vetor_visitado[i] = 0;
+        }
+
+        inicio = 0;
+        fim = 0;
+
+        fila[fim] = indice_inicial;
+        fim = fim + 1;
+        vetor_visitado[indice_inicial] = 1;
+
+        printf("\n=== BUSCA EM LARGURA (BFS) a partir de ");
+        ImprimirNomeCelula(indice_inicial);
+        printf(" ===\n");
+
+        while (inicio < fim) {
+            atual_indice = fila[inicio];
+            inicio = inicio + 1;
+
+            printf("Visitando (BFS): ");
+            ImprimirNomeCelula(atual_indice);
+            printf("\n");
+
+            atual = ponteiro_planilha
+                        ->vetor_celulas[atual_indice]
+                        .lista_dependencias;
+
+            while (atual != NULL) {
+                if (!vetor_visitado[atual->indice_destino]) {
+                    vetor_visitado[atual->indice_destino] = 1;
+                    fila[fim] = atual->indice_destino;
+                    fim = fim + 1;
+                }
+                atual = atual->proximo;
+            }
+        }
+
+        free(vetor_visitado);
+        free(fila);
+    } else {
+        printf("Erro ao alocar memoria para BFS.\n");
+        if (vetor_visitado != NULL) {
+            free(vetor_visitado);
+        }
+        if (fila != NULL) {
+            free(fila);
+        }
+    }
+}
+
+/* -------------------------------------------------- */
+/* Versões SIMPLES (sem prints) para medir tempo      */
+/* -------------------------------------------------- */
+
+void DFS_Recursivo_Simples(Planilha *ponteiro_planilha,
+                           int indice_atual,
+                           int *vetor_visitado)
+{
+    NodoAdjacencia *atual;
+
+    vetor_visitado[indice_atual] = 1;
+
+    atual = ponteiro_planilha
+                ->vetor_celulas[indice_atual]
+                .lista_dependencias;
+
+    while (atual != NULL) {
+        if (!vetor_visitado[atual->indice_destino]) {
+            DFS_Recursivo_Simples(ponteiro_planilha,
+                                  atual->indice_destino,
+                                  vetor_visitado);
+        }
+        atual = atual->proximo;
+    }
+}
+
+void BuscaProfundidade_Simples(Planilha *ponteiro_planilha, int indice_inicial)
+{
+    int *vetor_visitado;
+    int i;
+
+    vetor_visitado = (int *)malloc(TOTAL_CELULAS * sizeof(int));
+    if (vetor_visitado != NULL) {
+        for (i = 0; i < TOTAL_CELULAS; i++) {
+            vetor_visitado[i] = 0;
+        }
+
+        DFS_Recursivo_Simples(ponteiro_planilha, indice_inicial, vetor_visitado);
+
+        free(vetor_visitado);
+    }
+}
+
+void BuscaLargura_Simples(Planilha *ponteiro_planilha, int indice_inicial)
+{
+    int *vetor_visitado;
+    int *fila;
+    int inicio;
+    int fim;
+    int atual_indice;
+    int i;
+    NodoAdjacencia *atual;
+
+    vetor_visitado = (int *)malloc(TOTAL_CELULAS * sizeof(int));
+    fila = (int *)malloc(TOTAL_CELULAS * sizeof(int));
+
+    if (vetor_visitado != NULL && fila != NULL) {
+        for (i = 0; i < TOTAL_CELULAS; i++) {
+            vetor_visitado[i] = 0;
+        }
+
+        inicio = 0;
+        fim = 0;
+
+        fila[fim] = indice_inicial;
+        fim = fim + 1;
+        vetor_visitado[indice_inicial] = 1;
+
+        while (inicio < fim) {
+            atual_indice = fila[inicio];
+            inicio = inicio + 1;
+
+            atual = ponteiro_planilha
+                        ->vetor_celulas[atual_indice]
+                        .lista_dependencias;
+
+            while (atual != NULL) {
+                if (!vetor_visitado[atual->indice_destino]) {
+                    vetor_visitado[atual->indice_destino] = 1;
+                    fila[fim] = atual->indice_destino;
+                    fim = fim + 1;
+                }
+                atual = atual->proximo;
+            }
+        }
+
+        free(vetor_visitado);
+        free(fila);
+    } else {
+        if (vetor_visitado != NULL) free(vetor_visitado);
+        if (fila != NULL) free(fila);
+    }
+}
+
+/* -------------------------------------------------- */
+/* Medição dos tempos médios (exercício 6)            */
+/* -------------------------------------------------- */
+
+/* (a) Tempo médio de inserção dos dados no grafo:
+   - usa as expressões que já estão na planilha de origem
+   - cria uma nova planilha e re-analisa todas as expressões N vezes */
+void MedirTempoInsercao(Planilha *planilha_origem, int repeticoes)
+{
+    int r, i;
+    clock_t inicio, fim;
+    double tempo_total;
+    Planilha *p2;
+
+    tempo_total = 0.0;
+
+    for (r = 0; r < repeticoes; r++) {
+        p2 = InicializarPlanilha();
+        if (p2 != NULL) {
+            inicio = clock();
+            for (i = 0; i < TOTAL_CELULAS; i++) {
+                if (planilha_origem->vetor_celulas[i].texto_expressao[0] != '\0') {
+                    AnalisarExpressao(p2,
+                                      i,
+                                      planilha_origem->vetor_celulas[i].texto_expressao);
+                }
+            }
+            fim = clock();
+            tempo_total = tempo_total +
+                          (double)(fim - inicio) / CLOCKS_PER_SEC;
+
+            LiberarPlanilha(p2);
+        }
+    }
+
+    if (repeticoes > 0) {
+        printf("\n=== TEMPO MEDIO - INSERCAO NO GRAFO (a) ===\n");
+        printf("Repeticoes: %d\n", repeticoes);
+        printf("Tempo medio de insercao: %f segundos\n",
+               tempo_total / (double)repeticoes);
+    }
+}
+
+/* (c) Tempo médio de DFS (profundidade) */
+void MedirTempoDFS(Planilha *planilha, int indice_inicial, int repeticoes)
+{
+    int r;
+    clock_t inicio, fim;
+    double tempo_total;
+
+    tempo_total = 0.0;
+
+    for (r = 0; r < repeticoes; r++) {
+        inicio = clock();
+        BuscaProfundidade_Simples(planilha, indice_inicial);
+        fim = clock();
+        tempo_total = tempo_total +
+                      (double)(fim - inicio) / CLOCKS_PER_SEC;
+    }
+
+    if (repeticoes > 0) {
+        printf("\n=== TEMPO MEDIO - BUSCA EM PROFUNDIDADE (c) ===\n");
+        printf("Repeticoes: %d\n", repeticoes);
+        printf("Tempo medio DFS: %f segundos\n",
+               tempo_total / (double)repeticoes);
+    }
+}
+
+/* (b) Tempo médio de BFS (largura) */
+void MedirTempoBFS(Planilha *planilha, int indice_inicial, int repeticoes)
+{
+    int r;
+    clock_t inicio, fim;
+    double tempo_total;
+
+    tempo_total = 0.0;
+
+    for (r = 0; r < repeticoes; r++) {
+        inicio = clock();
+        BuscaLargura_Simples(planilha, indice_inicial);
+        fim = clock();
+        tempo_total = tempo_total +
+                      (double)(fim - inicio) / CLOCKS_PER_SEC;
+    }
+
+    if (repeticoes > 0) {
+        printf("\n=== TEMPO MEDIO - BUSCA EM LARGURA (b) ===\n");
+        printf("Repeticoes: %d\n", repeticoes);
+        printf("Tempo medio BFS: %f segundos\n",
+               tempo_total / (double)repeticoes);
     }
 }
 
@@ -684,32 +1057,83 @@ void LoopPrincipal(Planilha* ponteiro_planilha) {
         } else {
             linha_entrada[strcspn(linha_entrada, "\n")] = '\0';
 
-            if (strcmp(linha_entrada, "SAIR") == 0) {
+            if (strcmp(linha_entrada, "SAIR") == 0 ||
+                strcmp(linha_entrada, "sair") == 0) {
                 continuar = 0;
             } else {
-                if (strcmp(linha_entrada, "sair") == 0) {
-                    continuar = 0;
-                } else {
-                    texto_coordenada[0] = '\0';
-                    texto_expressao[0] = '\0';
+                texto_coordenada[0] = '\0';
+                texto_expressao[0] = '\0';
 
-                    leitura_valida = sscanf(linha_entrada, "%s %s", texto_coordenada, texto_expressao);
+                leitura_valida = sscanf(linha_entrada, "%s %s",
+                                        texto_coordenada, texto_expressao);
 
-                    if (leitura_valida == 2) {
-                        indice_celula = ConverterCoordenadaParaIndice(texto_coordenada);
-                        if (indice_celula != -1) {
-                            sucesso_analisar = AnalisarExpressao(ponteiro_planilha, indice_celula, texto_expressao);
-                            if (sucesso_analisar == 0) {
-                                printf("\nERRO: Expressao ou coordenada invalida.\n");
-                            }
-                        } else {
-                            printf("\nERRO: Coordenada de celula invalida ('%s').\n", texto_coordenada);
+                if (leitura_valida == 2) {
+                    indice_celula = ConverterCoordenadaParaIndice(texto_coordenada);
+                    if (indice_celula != -1) {
+                        sucesso_analisar = AnalisarExpressao(ponteiro_planilha,
+                                                             indice_celula,
+                                                             texto_expressao);
+                        if (sucesso_analisar == 0) {
+                            printf("\nERRO: Expressao ou coordenada invalida.\n");
                         }
                     } else {
-                        printf("\nERRO: Formato incorreto. Use: CELULA VALOR/EXPRESSAO.\n");
+                        printf("\nERRO: Coordenada de celula invalida ('%s').\n",
+                               texto_coordenada);
                     }
+                } else {
+                    printf("\nERRO: Formato incorreto. Use: CELULA VALOR/EXPRESSAO.\n");
                 }
             }
         }
     }
+}
+
+/* -------------------------------------------------- */
+/* main                                               */
+/* -------------------------------------------------- */
+
+int main() {
+    Planilha* ponteiro_planilha_principal;
+    int codigo_saida;
+
+    ponteiro_planilha_principal = InicializarPlanilha();
+    codigo_saida = 0;
+
+    if (ponteiro_planilha_principal != NULL) {
+        char linha_busca[32];
+        char texto_celula_busca[16];
+        int indice_busca;
+        int repeticoes;
+
+        /* Usuário edita a planilha */
+        LoopPrincipal(ponteiro_planilha_principal);
+
+        /* Pede célula para BFS/DFS */
+        printf("\nDigite uma celula para fazer BFS/DFS nas dependencias (ex: C1): ");
+        if (fgets(linha_busca, sizeof(linha_busca), stdin) != NULL) {
+            if (sscanf(linha_busca, "%15s", texto_celula_busca) == 1) {
+                indice_busca = ConverterCoordenadaParaIndice(texto_celula_busca);
+                if (indice_busca != -1) {
+                    /* Mostra o percurso uma vez (exercício 5) */
+                    BuscaProfundidade(ponteiro_planilha_principal, indice_busca);
+                    BuscaLargura(ponteiro_planilha_principal, indice_busca);
+
+                    /* Mede tempos médios (exercício 6) */
+                    repeticoes = 30; /* pode ajustar se quiser */
+                    MedirTempoInsercao(ponteiro_planilha_principal, repeticoes);
+                    MedirTempoBFS(ponteiro_planilha_principal, indice_busca, repeticoes);
+                    MedirTempoDFS(ponteiro_planilha_principal, indice_busca, repeticoes);
+                } else {
+                    printf("Celula invalida para busca.\n");
+                }
+            }
+        }
+
+        LiberarPlanilha(ponteiro_planilha_principal);
+        codigo_saida = 0;
+    } else {
+        codigo_saida = 1;
+    }
+
+    return codigo_saida;
 }
