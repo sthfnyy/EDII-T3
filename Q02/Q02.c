@@ -3,6 +3,7 @@
 #include <stdlib.h>  
 #include "Q02.h"
 
+/* Decodifica índice de estado -> vetor de pinos (recursivo) */
 void decodificar_estado_rec(int indice, int posicao, int vetor_estado[])
 {
     if (posicao < NUM_DISCOS)
@@ -12,11 +13,13 @@ void decodificar_estado_rec(int indice, int posicao, int vetor_estado[])
     }
 }
 
+/* Versão de interface para decodificar estado */
 void decodificar_estado(int indice, int vetor_estado[])
 {
     decodificar_estado_rec(indice, 0, vetor_estado);
 }
 
+/* Codifica vetor de estado -> índice inteiro (recursivo, base NUM_PINOS) */
 int codificar_estado_rec(int posicao, int vetor_estado[], int multiplicador)
 {
     int resultado;
@@ -33,6 +36,7 @@ int codificar_estado_rec(int posicao, int vetor_estado[], int multiplicador)
     return resultado;
 }
 
+/* Versão de interface para codificar estado */
 int codificar_estado(int vetor_estado[])
 {
     int resultado;
@@ -40,8 +44,7 @@ int codificar_estado(int vetor_estado[])
     return resultado;
 }
 
-/* Encontra o disco no topo de um pino (menor índice de disco naquele pino).
-   Retorna o índice do disco ou -1 se estiver vazio. */
+/* Encontra o disco do topo em um pino (menor índice de disco naquele pino) */
 int encontrar_topo_pino(int vetor_estado[], int pino)
 {
     int disco;
@@ -57,7 +60,7 @@ int encontrar_topo_pino(int vetor_estado[], int pino)
     return resultado;
 }
 
-
+/* Inicializa o grafo em lista: zera qtd_vizinhos de todos os vértices (recursivo) */
 void inicializar_grafo_lista_rec(ListaAdj grafo[], int indice)
 {
     if (indice < NUM_ESTADOS)
@@ -67,6 +70,7 @@ void inicializar_grafo_lista_rec(ListaAdj grafo[], int indice)
     }
 }
 
+/* Adiciona vizinho (aresta origem -> destino) na lista de adjacência */
 void adicionar_vizinho(ListaAdj grafo[], int origem, int destino)
 {
     int pos = grafo[origem].qtd_vizinhos;
@@ -78,6 +82,7 @@ void adicionar_vizinho(ListaAdj grafo[], int origem, int destino)
     }
 }
 
+/* Constrói recursivamente as listas de adjacência com todos os movimentos válidos */
 void construir_grafo_lista_rec(ListaAdj grafo[], int indice_estado)
 {
     int estado_atual[NUM_DISCOS];
@@ -90,8 +95,10 @@ void construir_grafo_lista_rec(ListaAdj grafo[], int indice_estado)
 
     if (indice_estado < NUM_ESTADOS)
     {
+        /* transforma índice em vetor de pinos */
         decodificar_estado(indice_estado, estado_atual);
 
+        /* tenta mover o disco do topo de cada pino de origem */
         for (pino_origem = 0; pino_origem < NUM_PINOS; pino_origem++)
         {
             disco_mover = encontrar_topo_pino(estado_atual, pino_origem);
@@ -104,8 +111,10 @@ void construir_grafo_lista_rec(ListaAdj grafo[], int indice_estado)
                     {
                         topo_destino = encontrar_topo_pino(estado_atual, pino_destino);
 
+                        /* só permite movimento se destino vazio ou disco menor sobre maior */
                         if (topo_destino == -1 || disco_mover < topo_destino)
                         {
+                            /* copia estado e faz o movimento */
                             for (i = 0; i < NUM_DISCOS; i++)
                             {
                                 estado_novo[i] = estado_atual[i];
@@ -113,6 +122,8 @@ void construir_grafo_lista_rec(ListaAdj grafo[], int indice_estado)
 
                             estado_novo[disco_mover] = pino_destino;
                             indice_novo = codificar_estado(estado_novo);
+
+                            /* registra aresta na lista de adjacência */
                             adicionar_vizinho(grafo, indice_estado, indice_novo);
                         }
                     }
@@ -120,17 +131,19 @@ void construir_grafo_lista_rec(ListaAdj grafo[], int indice_estado)
             }
         }
 
+        /* próximo estado */
         construir_grafo_lista_rec(grafo, indice_estado + 1);
     }
 }
 
+/* Função de alto nível: inicializa e constrói o grafo em lista */
 void construir_grafo_lista(ListaAdj grafo[])
 {
     inicializar_grafo_lista_rec(grafo, 0);
     construir_grafo_lista_rec(grafo, 0);
 }
 
-
+/* Encontra vértice não visitado com menor distância (recursivo) */
 int encontrar_menor_distancia_rec(int distancia[], int visitado[], int posicao, int menor_valor, int indice_menor)
 {
     int resultado;
@@ -145,7 +158,8 @@ int encontrar_menor_distancia_rec(int distancia[], int visitado[], int posicao, 
             novo_indice_menor = posicao;
         }
 
-        resultado = encontrar_menor_distancia_rec(distancia, visitado, posicao + 1, novo_menor_valor, novo_indice_menor);
+        resultado = encontrar_menor_distancia_rec(distancia, visitado,
+                                                  posicao + 1, novo_menor_valor, novo_indice_menor);
     }
     else
     {
@@ -155,12 +169,14 @@ int encontrar_menor_distancia_rec(int distancia[], int visitado[], int posicao, 
     return resultado;
 }
 
+/* Dijkstra usando lista de adjacência */
 void dijkstra_lista(ListaAdj grafo[], int inicio, int destino, int antecessor[], int distancia[])
 {
     int *visitado_heap = (int*)malloc(sizeof(int) * NUM_ESTADOS);
     int visitado_stack[NUM_ESTADOS];
     int *visitado;
 
+    /* tenta usar heap, se não der usa stack */
     if (visitado_heap != NULL)
         visitado = visitado_heap;
     else
@@ -168,6 +184,7 @@ void dijkstra_lista(ListaAdj grafo[], int inicio, int destino, int antecessor[],
 
     int i, j, u, v;
 
+    /* inicializa distâncias e visitados */
     for (i = 0; i < NUM_ESTADOS; i++)
     {
         distancia[i] = INFINITO;
@@ -179,10 +196,12 @@ void dijkstra_lista(ListaAdj grafo[], int inicio, int destino, int antecessor[],
     int processados = 0;
     u = encontrar_menor_distancia_rec(distancia, visitado, 0, INFINITO, -1);
 
+    /* laço principal do Dijkstra */
     while (processados < NUM_ESTADOS && u != -1)
     {
         visitado[u] = 1;
 
+        /* percorre vizinhos de u */
         for (j = 0; j < grafo[u].qtd_vizinhos; j++)
         {
             v = grafo[u].vizinhos[j];
@@ -201,7 +220,7 @@ void dijkstra_lista(ListaAdj grafo[], int inicio, int destino, int antecessor[],
         free(visitado_heap);
 }
 
-
+/* Imprime um vetor de estado como [ p0 p1 p2 p3 ] */
 void imprimir_estado(int vetor_estado[])
 {
     int i;
@@ -213,6 +232,7 @@ void imprimir_estado(int vetor_estado[])
     printf("]\n");
 }
 
+/* Imprime recursivamente o caminho estado por estado */
 void imprimir_caminho_rec(int caminho[], int tamanho, int indice)
 {
     int estado[NUM_DISCOS];
@@ -226,9 +246,9 @@ void imprimir_caminho_rec(int caminho[], int tamanho, int indice)
     }
 }
 
+/* Reconstrói o caminho usando antecessor[] e imprime em ordem correta */
 void imprimir_caminho(int antecessor[], int inicio, int destino)
 {
-
     int *caminho_heap = (int*)malloc(sizeof(int) * NUM_ESTADOS);
     int caminho_stack[NUM_ESTADOS];
     int *caminho;
@@ -242,6 +262,7 @@ void imprimir_caminho(int antecessor[], int inicio, int destino)
     int atual = destino;
     int i;
 
+    /* remonta o caminho de trás pra frente */
     while (atual != -1 && tamanho < NUM_ESTADOS)
     {
         caminho[tamanho] = atual;
@@ -259,6 +280,7 @@ void imprimir_caminho(int antecessor[], int inicio, int destino)
 
     if (tamanho > 0)
     {
+        /* inverte o vetor pra ficar do início até o destino */
         for (i = 0; i < tamanho / 2; i++)
         {
             int temp;

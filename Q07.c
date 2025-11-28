@@ -109,7 +109,7 @@ void inserir_hash_a(RegistroAluno *tabela, int tamanho, const char *matricula, i
     indice = indice_base;
     tentativas = 0;
 
-    /* procura até achar posição livre ou dar a volta na tabela */
+    /* probing até achar posição livre ou dar a volta na tabela */
     while (tentativas < tamanho && tabela[indice].ocupado)
     {
         (*colisoes_totais)++;
@@ -152,7 +152,10 @@ void inserir_hash_b(RegistroAluno *tabela, int tamanho, const char *matricula, i
     tabela[indice].ocupado = 1;
 }
 
-/* Gera 4000 matrículas válidas:*/
+/* Gera 4000 matrículas válidas, formato AAAACNNNNNN:
+   - 4 dígitos: ano (2010..2024)
+   - 1 dígito: curso (1..9)
+   - 6 dígitos: número do aluno (000000..003999) */
 void gerar_matriculas(char matriculas[TOTAL_ALUNOS][12]) 
 {
     int i;

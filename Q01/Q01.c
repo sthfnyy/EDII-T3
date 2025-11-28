@@ -3,21 +3,31 @@
 #include <time.h>
 #include "Q01.h"
 
-
+/* 
+ * Converte um índice de estado (0..NUM_ESTADOS-1) 
+ * para o vetor de pinos de cada disco, de forma recursiva.
+ */
 void decodificar_estado_rec(int indice, int posicao, int vetor_estado[])
 {
     if (posicao < NUM_DISCOS)
     {
+        /* pega o pino do disco na posição atual (base NUM_PINOS) */
         vetor_estado[posicao] = indice % NUM_PINOS;
+        /* divide o índice e passa para o próximo disco */
         decodificar_estado_rec(indice / NUM_PINOS, posicao + 1, vetor_estado);
     }
 }
 
+/* Função de interface para decodificar um estado */
 void decodificar_estado(int indice, int vetor_estado[])
 {
     decodificar_estado_rec(indice, 0, vetor_estado);
 }
 
+/* 
+ * Converte um vetor de estado (pinos de cada disco) 
+ * em um índice inteiro (codificação em base NUM_PINOS), recursivo.
+ */
 int codificar_estado_rec(int posicao, int vetor_estado[], int multiplicador)
 {
     int resultado;
@@ -35,6 +45,7 @@ int codificar_estado_rec(int posicao, int vetor_estado[], int multiplicador)
     return resultado;
 }
 
+/* Função de interface para codificar um estado */
 int codificar_estado(int vetor_estado[])
 {
     int resultado;
@@ -42,6 +53,10 @@ int codificar_estado(int vetor_estado[])
     return resultado;
 }
 
+/* 
+ * Encontra o disco do topo em um pino (menor índice de disco naquele pino).
+ * Retorna o índice do disco ou -1 se o pino estiver vazio.
+ */
 int encontrar_topo_pino(int vetor_estado[], int pino)
 {
     int disco;
@@ -59,6 +74,10 @@ int encontrar_topo_pino(int vetor_estado[], int pino)
 
 /* ======================== MATRIZ DE ADJACÊNCIA ======================== */
 
+/* 
+ * Aloca dinamicamente uma matriz NUM_ESTADOS x NUM_ESTADOS de int.
+ * Em caso de falha, libera tudo e retorna 0.
+ */
 int alocar_matriz(int ***pmatriz)
 {
     int i;
@@ -82,6 +101,7 @@ int alocar_matriz(int ***pmatriz)
         ok = 0;
     }
 
+    /* se deu erro em alguma linha, libera tudo */
     if (ok == 0)
     {
         if (*pmatriz != NULL)
@@ -102,6 +122,7 @@ int alocar_matriz(int ***pmatriz)
     return ok;
 }
 
+/* Libera toda a matriz de adjacência */
 void liberar_matriz(int **matriz)
 {
     int i;
@@ -120,6 +141,10 @@ void liberar_matriz(int **matriz)
     }
 }
 
+/* 
+ * Inicializa a matriz recursivamente com zeros.
+ * linha e coluna indicam a posição atual.
+ */
 void inicializar_matriz_rec(int **matriz, int linha, int coluna)
 {
     if (linha < NUM_ESTADOS)
@@ -139,6 +164,10 @@ void inicializar_matriz_rec(int **matriz, int linha, int coluna)
 
 /* ======================== CONSTRUÇÃO DO GRAFO (MATRIZ) ======================== */
 
+/* 
+ * Para cada estado (linha da matriz), gera todos os movimentos válidos
+ * e marca as arestas (colunas) com 1.
+ */
 void construir_grafo_matriz_rec(int **matriz, int indice_estado)
 {
     int estado_atual[NUM_DISCOS];
@@ -151,8 +180,10 @@ void construir_grafo_matriz_rec(int **matriz, int indice_estado)
 
     if (indice_estado < NUM_ESTADOS)
     {
+        /* decodifica o índice do estado em vetor de pinos */
         decodificar_estado(indice_estado, estado_atual);
 
+        /* tenta mover o disco do topo de cada pino de origem */
         for (pino_origem = 0; pino_origem < NUM_PINOS; pino_origem++)
         {
             disco_mover = encontrar_topo_pino(estado_atual, pino_origem);
@@ -165,15 +196,20 @@ void construir_grafo_matriz_rec(int **matriz, int indice_estado)
                     {
                         topo_destino = encontrar_topo_pino(estado_atual, pino_destino);
 
+                        /* movimento só é permitido se pino destino vazio ou topo maior */
                         if (topo_destino == -1 || disco_mover < topo_destino)
                         {
+                            /* copia o estado atual */
                             for (i = 0; i < NUM_DISCOS; i++)
                             {
                                 estado_novo[i] = estado_atual[i];
                             }
 
+                            /* move o disco para o novo pino */
                             estado_novo[disco_mover] = pino_destino;
+                            /* codifica o novo estado em índice */
                             indice_novo = codificar_estado(estado_novo);
+                            /* registra a aresta na matriz */
                             matriz[indice_estado][indice_novo] = 1;
                         }
                     }
@@ -181,10 +217,14 @@ void construir_grafo_matriz_rec(int **matriz, int indice_estado)
             }
         }
 
+        /* processa o próximo estado */
         construir_grafo_matriz_rec(matriz, indice_estado + 1);
     }
 }
 
+/* 
+aloca, zera e constrói o grafo na matriz.
+ */
 void construir_grafo_matriz(int ***pmatriz)
 {
     int ok;
@@ -205,6 +245,10 @@ void construir_grafo_matriz(int ***pmatriz)
 
 /* ======================== DIJKSTRA (MATRIZ) ======================== */
 
+/* 
+ * Procura recursivamente o vértice com menor distância não visitado.
+ * Retorna o índice do vértice ou -1 se não achar.
+ */
 int encontrar_menor_distancia_rec(int distancia[], int visitado[], int posicao,
                                   int menor_valor, int indice_menor)
 {
@@ -219,7 +263,8 @@ int encontrar_menor_distancia_rec(int distancia[], int visitado[], int posicao,
             novo_menor = distancia[posicao];
             novo_indice = posicao;
         }
-        resultado = encontrar_menor_distancia_rec(distancia, visitado, posicao + 1, novo_menor, novo_indice);
+        resultado = encontrar_menor_distancia_rec(distancia, visitado,
+                                                  posicao + 1, novo_menor, novo_indice);
     }
     else
     {
@@ -229,6 +274,10 @@ int encontrar_menor_distancia_rec(int distancia[], int visitado[], int posicao,
     return resultado;
 }
 
+/* 
+ * Implementa o algoritmo de Dijkstra usando matriz de adjacência.
+ * Calcula distâncias mínimas e preenche o vetor de antecessores.
+ */
 void dijkstra_matriz(int **matriz, int inicio, int destino, int antecessor[], int distancia[])
 {
     int *visitado_heap = (int*)malloc(sizeof(int) * NUM_ESTADOS);
@@ -237,11 +286,13 @@ void dijkstra_matriz(int **matriz, int inicio, int destino, int antecessor[], in
     int i, v, u;
     int processados;
 
+    /* tenta alocar vetor de visitados no heap; se não der, usa stack */
     if (visitado_heap != NULL)
         visitado = visitado_heap;
     else
         visitado = visitado_stack;
 
+    /* inicializa distâncias e visitados */
     for (i = 0; i < NUM_ESTADOS; i++)
     {
         distancia[i] = INFINITO;
@@ -253,10 +304,12 @@ void dijkstra_matriz(int **matriz, int inicio, int destino, int antecessor[], in
     processados = 0;
     u = encontrar_menor_distancia_rec(distancia, visitado, 0, INFINITO, -1);
 
+    /* laço principal do Dijkstra */
     while (processados < NUM_ESTADOS && u != -1)
     {
         visitado[u] = 1;
 
+        /* relaxa as arestas a partir de u */
         for (v = 0; v < NUM_ESTADOS; v++)
         {
             if (matriz[u][v] == 1)
@@ -279,6 +332,7 @@ void dijkstra_matriz(int **matriz, int inicio, int destino, int antecessor[], in
 
 /* ======================== IMPRESSÃO DO CAMINHO ======================== */
 
+/* Imprime um vetor de estado como [ p0 p1 p2 p3 ] */
 void imprimir_estado(int vetor_estado[])
 {
     int i;
@@ -290,6 +344,10 @@ void imprimir_estado(int vetor_estado[])
     printf("]\n");
 }
 
+/* 
+ * Imprime recursivamente cada estado do caminho, já em ordem.
+ * caminho[indice] guarda um índice de estado.
+ */
 void imprimir_caminho_rec(int caminho[], int tamanho, int indice)
 {
     int estado[NUM_DISCOS];
@@ -303,6 +361,10 @@ void imprimir_caminho_rec(int caminho[], int tamanho, int indice)
     }
 }
 
+/* 
+ * Reconstrói o caminho a partir do vetor de antecessores e imprime.
+ * Faz a reconstrução "de trás pra frente" e depois inverte o vetor.
+ */
 void imprimir_caminho(int antecessor[], int inicio, int destino)
 {
     int *caminho_heap = (int*)malloc(sizeof(int) * NUM_ESTADOS);
@@ -312,11 +374,13 @@ void imprimir_caminho(int antecessor[], int inicio, int destino)
     int atual = destino;
     int i;
 
+    /* tenta alocar no heap; senão, usa vetor local */
     if (caminho_heap != NULL)
         caminho = caminho_heap;
     else
         caminho = caminho_stack;
 
+    /* percorre antecessores até chegar no início ou esgotar */
     while (atual != -1 && tamanho < NUM_ESTADOS)
     {
         caminho[tamanho] = atual;
@@ -334,6 +398,7 @@ void imprimir_caminho(int antecessor[], int inicio, int destino)
 
     if (tamanho > 0)
     {
+        /* inverte o vetor para ficar do início ao fim */
         for (i = 0; i < tamanho / 2; i++)
         {
             int temp;

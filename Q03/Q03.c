@@ -4,7 +4,10 @@
 #include <ctype.h>
 #include "Q03.h"
 
-
+/* 
+ * Retorna 1 se a string não é nula e não é vazia.
+ * Usado para evitar trabalhar com texto inválido.
+ */
 int TextoNaoVazio(const char* texto) 
 {
     int valido = 0;
@@ -14,6 +17,10 @@ int TextoNaoVazio(const char* texto)
     return valido;
 }
 
+/*
+ * Verifica se o índice está dentro do intervalo [0, TOTAL_CELULAS).
+ * Garante que não acessamos fora do vetor da planilha.
+ */
 int IndiceCelulaValido(int indice)
 {
     int valido = 0;
@@ -23,6 +30,10 @@ int IndiceCelulaValido(int indice)
     return valido;
 }
 
+/*
+ * Converte todas as letras de uma string para minúsculas.
+ * Ex.: "SOMA" -> "soma". Facilita a comparação de nomes de funções.
+ */
 void NormalizarTextoMinusculo(char* texto) 
 {
     int i = 0;
@@ -36,8 +47,13 @@ void NormalizarTextoMinusculo(char* texto)
     }
 }
 
+/*
+ * Traduz o nome da função em texto (ex: "soma") para o enum TipoFuncao.
+ * Caso não seja nenhuma conhecida, retorna TIPO_FUNCAO_NENHUMA.
+ */
 TipoFuncao ConverterTextoParaTipoFuncao(const char* texto_funcao) 
 {
+    /* tabela de mapeamento nome -> enum */
     MapaFuncao mapa[] = {
         {"soma",  TIPO_FUNCAO_SOMA},
         {"max",   TIPO_FUNCAO_MAX},
@@ -51,6 +67,7 @@ TipoFuncao ConverterTextoParaTipoFuncao(const char* texto_funcao)
     int encontrou = 0;
 
     if (texto_valido == 1) {
+        /* procura o nome da função na pequena tabela "mapa" */
         while (i < qtd && encontrou == 0) {
             if (strcmp(texto_funcao, mapa[i].nome) == 0) {
                 tipo_resultado = mapa[i].tipo;
@@ -62,13 +79,23 @@ TipoFuncao ConverterTextoParaTipoFuncao(const char* texto_funcao)
     return tipo_resultado;
 }
 
-void ObterLimitesIntervalo(int indice_inicio, int indice_fim, int* linha_menor, int* linha_maior, int* coluna_menor, int* coluna_maior)
+/*
+ * Dado dois índices de célula (início e fim do intervalo),
+ * calcula o "retângulo" na planilha:
+ *  - linha_menor, linha_maior
+ *  - coluna_menor, coluna_maior
+ * Isso permite percorrer o intervalo mesmo se o usuário digitar B3..A1, por exemplo.
+ */
+void ObterLimitesIntervalo(int indice_inicio, int indice_fim,
+                           int* linha_menor, int* linha_maior,
+                           int* coluna_menor, int* coluna_maior)
 {
     int linha_inicio = indice_inicio / TOTAL_COLUNAS;
     int coluna_inicio = indice_inicio % TOTAL_COLUNAS;
     int linha_fim = indice_fim / TOTAL_COLUNAS;
     int coluna_fim = indice_fim % TOTAL_COLUNAS;
 
+    /* garante que linha_menor <= linha_maior */
     if (linha_inicio <= linha_fim) {
         *linha_menor = linha_inicio;
         *linha_maior = linha_fim;
@@ -77,6 +104,7 @@ void ObterLimitesIntervalo(int indice_inicio, int indice_fim, int* linha_menor, 
         *linha_maior = linha_inicio;
     }
 
+    /* garante que coluna_menor <= coluna_maior */
     if (coluna_inicio <= coluna_fim) {
         *coluna_menor = coluna_inicio;
         *coluna_maior = coluna_fim;
@@ -88,6 +116,10 @@ void ObterLimitesIntervalo(int indice_inicio, int indice_fim, int* linha_menor, 
 
 /* ------------------ Conversão índice <-> coordenada ------------------ */
 
+/*
+ * Converte um índice linear (0..159) em coordenada de planilha ("A1", "B3"...)
+ * Saída é gravada em texto_coordenada.
+ */
 char* ConverterIndiceParaCoordenada(int indice_celula, char* texto_coordenada) 
 {
     char* resultado = NULL;
@@ -103,6 +135,10 @@ char* ConverterIndiceParaCoordenada(int indice_celula, char* texto_coordenada)
     return resultado;
 }
 
+/*
+ * Converte coordenada "A1", "C10", etc. em índice linear (0..159).
+ * Retorna -1 se a coordenada for inválida.
+ */
 int ConverterCoordenadaParaIndice(const char* texto_coordenada) 
 {
     int indice_resultado = -1;
@@ -115,11 +151,13 @@ int ConverterCoordenadaParaIndice(const char* texto_coordenada)
     if (texto_valido == 1) {
         tamanho = (int)strlen(texto_coordenada);
         if (tamanho >= 2) {
+            /* primeira letra -> coluna */
             ccol = texto_coordenada[0];
             if (ccol >= 'a' && ccol <= 'z') {
                 ccol = (char)(ccol - 'a' + 'A');
             }
             col = ccol - 'A';
+            /* restante da string -> linha (começando em 1) */
             lin = atoi(texto_coordenada + 1) - 1;
             if (col >= 0 && col < TOTAL_COLUNAS && lin >= 0 && lin < TOTAL_LINHAS) {
                 indice_resultado = lin * TOTAL_COLUNAS + col;
@@ -131,6 +169,9 @@ int ConverterCoordenadaParaIndice(const char* texto_coordenada)
 
 /* ---------------------- Dependências (grafo) ---------------------- */
 
+/*
+ * Verifica se planilha existe, matriz foi alocada e índices dep/ref são válidos.
+ */
 int DependenciasIndicesValidos(Planilha* plan, int dep, int ref) 
 {
     int valido = 0;
@@ -143,6 +184,10 @@ int DependenciasIndicesValidos(Planilha* plan, int dep, int ref)
     return valido;
 }
 
+/*
+ * Adiciona uma dependência dep -> ref na matriz de adjacência.
+ * Linha = célula dependente, coluna = célula da qual ela depende.
+ */
 void AdicionarDependencia(Planilha* plan, int dep, int ref) 
 {
     int ok = DependenciasIndicesValidos(plan, dep, ref);
@@ -151,6 +196,9 @@ void AdicionarDependencia(Planilha* plan, int dep, int ref)
     }
 }
 
+/*
+ * Remove todas as dependências de uma célula, zerando a linha da matriz.
+ */
 void RemoverDependencias(Planilha* plan, int indice_cel) 
 {
     int ok = 0;
@@ -173,6 +221,9 @@ void RemoverDependencias(Planilha* plan, int indice_cel)
 
 /* ---------------------- Helpers de expressão ---------------------- */
 
+/*
+ * Deixa a célula "zerada": sem valor, sem expressão, sem função.
+ */
 void LimparEstadoCelula(Celula* cel) 
 {
     if (cel != NULL) {
@@ -186,6 +237,9 @@ void LimparEstadoCelula(Celula* cel)
     }
 }
 
+/*
+ * Copia o texto da expressão digitada para dentro da célula.
+ */
 void CopiarExpressaoParaCelula(Celula* cel, const char* txt_expr) 
 {
     if (cel != NULL && TextoNaoVazio(txt_expr) == 1) {
@@ -194,23 +248,30 @@ void CopiarExpressaoParaCelula(Celula* cel, const char* txt_expr)
     }
 }
 
+/*
+ * Interpreta a expressão como número simples (ex: "10", "-5.3").
+ * Se conseguir, preenche a célula como número.
+ */
 int ProcessarExpressaoNumerica(Celula* cel, const char* s) 
 {
-    int resultado = 0;  // assume falha
+    int resultado = 0;  /* assume falha */
 
     if (cel != NULL && TextoNaoVazio(s)) {
         double v;
         if (sscanf(s, " %lf", &v) == 1) {
             cel->tipo_conteudo = TIPO_CONTEUDO_NUMERO;
             cel->valor_numerico = v;
-            resultado = 1;  // sucesso
+            resultado = 1;  /* sucesso */
         }
     }
 
     return resultado;  
 }
 
-
+/*
+ * Trata expressões do tipo "=A1" (referência a uma única célula).
+ * Registra o índice da célula referenciada e a dependência no grafo.
+ */
 int ProcessarExpressaoReferencia(Planilha* plan, Celula* cel, int indice_cel, const char* txt_expr) 
 {
     int resultado = 0;
@@ -228,27 +289,33 @@ int ProcessarExpressaoReferencia(Planilha* plan, Celula* cel, int indice_cel, co
     return resultado;
 }
 
+/*
+ * A partir de uma expressão do tipo "@soma(A1..B2)",
+ * extrai o nome da função ("soma") e o intervalo ("A1..B2").
+ */
 int ObterNomeFuncaoEIntervalo(const char* txt_expr, char* texto_funcao, char* texto_intervalo) 
 {
     int resultado = 0;
     int valido = TextoNaoVazio(txt_expr);
-    int i = 1;
-    int pos_par = -1;
+    int i = 1;          /* começa em 1 pra pular o '@' */
+    int pos_par = -1;   /* posição do '(' */
     int tam = 0;
     int tam_intervalo = 0;
 
     if (valido == 1 && txt_expr[0] == '@') {
         tam = (int)strlen(txt_expr);
+        /* copia o nome da função até encontrar '(' */
         while (txt_expr[i] != '\0') {
             char c = txt_expr[i];
             if (c == '(') {
                 pos_par = i;
-                i = tam;
+                i = tam; /* sai do laço */
             } else if ((i - 1) < 15) {
                 texto_funcao[i - 1] = c;
             }
             i++;
         }
+        /* confere se tem '(' ... ')' no lugar certo */
         if (pos_par != -1 &&
             txt_expr[pos_par] == '(' &&
             txt_expr[tam - 1] == ')') {
@@ -256,6 +323,7 @@ int ObterNomeFuncaoEIntervalo(const char* txt_expr, char* texto_funcao, char* te
             texto_funcao[pos_par - 1] = '\0';
             NormalizarTextoMinusculo(texto_funcao);
 
+            /* intervalo fica entre '(' e ')' */
             tam_intervalo = tam - pos_par - 2;
             if (tam_intervalo > 0 && tam_intervalo < 32) {
                 strncpy(texto_intervalo, txt_expr + pos_par + 1, tam_intervalo);
@@ -267,6 +335,11 @@ int ObterNomeFuncaoEIntervalo(const char* txt_expr, char* texto_funcao, char* te
     return resultado;
 }
 
+/*
+ * Processa funções do tipo:
+ *   @soma(A1..B3), @max(...), @min(...), @media(...)
+ * Define tipo_funcao, intervalo e adiciona as dependências na matriz.
+ */
 int ProcessarExpressaoFuncao(Planilha* plan, Celula* cel, int indice_cel, const char* txt_expr) 
 {
     int resultado = 0;
@@ -291,6 +364,7 @@ int ProcessarExpressaoFuncao(Planilha* plan, Celula* cel, int indice_cel, const 
                 strncpy(intervalo_local, texto_intervalo, sizeof(intervalo_local) - 1);
                 intervalo_local[sizeof(intervalo_local) - 1] = '\0';
 
+                /* separa "A1..B2" em duas partes antes e depois de ".." */
                 sep = strstr(intervalo_local, "..");
                 if (sep != NULL) {
                     *sep = '\0';
@@ -316,6 +390,7 @@ int ProcessarExpressaoFuncao(Planilha* plan, Celula* cel, int indice_cel, const 
                                           &linha_menor, &linha_maior,
                                           &coluna_menor, &coluna_maior);
 
+                    /* adiciona uma dependência para cada célula do retângulo */
                     for (l = linha_menor; l <= linha_maior; l++) {
                         for (c = coluna_menor; c <= coluna_maior; c++) {
                             indice_atual = l * TOTAL_COLUNAS + c;
@@ -334,6 +409,10 @@ int ProcessarExpressaoFuncao(Planilha* plan, Celula* cel, int indice_cel, const 
 
 /* ---------------- Analisar expressão da célula ---------------- */
 
+/*
+ * Dado o texto digitado para uma célula,
+ * tenta interpretar como número, referência ou função.
+ */
 int AnalisarExpressao(Planilha* plan, int indice_cel, const char* txt_expr) 
 {
     int resultado = 0;
@@ -341,12 +420,15 @@ int AnalisarExpressao(Planilha* plan, int indice_cel, const char* txt_expr)
 
     if (plan != NULL && IndiceCelulaValido(indice_cel) == 1) {
         cel = &(plan->vetor_celulas[indice_cel]);
+
+        /* limpa o estado anterior e dependências antigas */
         RemoverDependencias(plan, indice_cel);
         LimparEstadoCelula(cel);
 
         if (TextoNaoVazio(txt_expr) == 1) {
             CopiarExpressaoParaCelula(cel, txt_expr);
 
+            /* tenta em ordem: número -> referência -> função */
             if (ProcessarExpressaoNumerica(cel, txt_expr) == 1) {
                 resultado = 1;
             } else if (ProcessarExpressaoReferencia(plan, cel, indice_cel, txt_expr) == 1) {
@@ -355,6 +437,7 @@ int AnalisarExpressao(Planilha* plan, int indice_cel, const char* txt_expr)
                 resultado = 1;
             }
 
+            /* se nada deu certo, volta a célula para vazia */
             if (resultado == 0) {
                 LimparEstadoCelula(cel);
             }
@@ -365,6 +448,12 @@ int AnalisarExpressao(Planilha* plan, int indice_cel, const char* txt_expr)
 
 /* -------------------- Avaliar célula (recursivo) -------------------- */
 
+/*
+ * Calcula o valor numérico de uma célula:
+ *  - se for número: devolve o valor guardado;
+ *  - se for referência: segue a referência recursivamente;
+ *  - se for função: retorno 0 aqui, valor real é calculado em CalcularFuncao().
+ */
 double AvaliarCelula(Planilha* plan, int indice_cel) 
 {
     double valor = 0.0;
@@ -377,7 +466,8 @@ double AvaliarCelula(Planilha* plan, int indice_cel)
         } else if (cel->tipo_conteudo == TIPO_CONTEUDO_REFERENCIA) {
             valor = AvaliarCelula(plan, cel->indice_referencia);
         } else if (cel->tipo_conteudo == TIPO_CONTEUDO_FUNCAO) {
-            valor = 0.0; /* será calculado em CalcularFuncao quando for exibido */
+            /* valor será calculado em CalcularFuncao quando necessário */
+            valor = 0.0;
         } else {
             valor = 0.0;
         }
@@ -387,43 +477,61 @@ double AvaliarCelula(Planilha* plan, int indice_cel)
 
 /* ---------------- Calcular função (@soma, @min, ...) ---------------- */
 
-double CalcularFuncao(Planilha* plan, int indice_cel_funcao) 
+/*
+ * Percorre todas as células do intervalo da função e,
+ * conforme o tipo (soma, média, max, min), calcula o valor final.
+ */
+double CalcularFuncao(Planilha* plan, int indice_cel_funcao)
 {
     double valor_resultado = 0.0;
+
     if (plan != NULL && IndiceCelulaValido(indice_cel_funcao) == 1) {
         Celula* cel_f = &(plan->vetor_celulas[indice_cel_funcao]);
         int indice_inicio = cel_f->indice_inicio_intervalo;
-        int indice_fim = cel_f->indice_fim_intervalo;
-        int linha_menor = 0, linha_maior = 0;
-        int coluna_menor = 0, coluna_maior = 0;
+        int indice_fim    = cel_f->indice_fim_intervalo;
+        int linha_menor   = 0, linha_maior   = 0;
+        int coluna_menor  = 0, coluna_maior  = 0;
         double soma_valores = 0.0;
-        int quantidade = 0;
-        int encontrou = 0;
+        int quantidade      = 0;
+        int encontrou       = 0;
         int l, c;
 
+        /* converte índices em limites de linha/coluna */
         ObterLimitesIntervalo(indice_inicio, indice_fim,
                               &linha_menor, &linha_maior,
                               &coluna_menor, &coluna_maior);
 
+        /* varre todo o retângulo do intervalo */
         for (l = linha_menor; l <= linha_maior; l++) {
             for (c = coluna_menor; c <= coluna_maior; c++) {
                 int indice_atual = l * TOTAL_COLUNAS + c;
+
+                /* evita usar a própria célula da função dentro do cálculo */
                 if (indice_atual != indice_cel_funcao) {
                     Celula* cel_atual = &(plan->vetor_celulas[indice_atual]);
+
+                    /* ignora células vazias e funções (só usa número ou referência) */
                     if (cel_atual->tipo_conteudo != TIPO_CONTEUDO_VAZIA &&
                         cel_atual->tipo_conteudo != TIPO_CONTEUDO_FUNCAO) {
 
                         double v = AvaliarCelula(plan, indice_atual);
+
+                        /* acumula soma/media */
                         if (cel_f->tipo_funcao == TIPO_FUNCAO_SOMA ||
                             cel_f->tipo_funcao == TIPO_FUNCAO_MEDIA) {
+
                             soma_valores += v;
                             quantidade++;
-                        } else if (cel_f->tipo_funcao == TIPO_FUNCAO_MAX) {
+                        }
+                        /* atualiza maior valor */
+                        else if (cel_f->tipo_funcao == TIPO_FUNCAO_MAX) {
                             if (encontrou == 0 || v > valor_resultado) {
                                 valor_resultado = v;
                                 encontrou = 1;
                             }
-                        } else if (cel_f->tipo_funcao == TIPO_FUNCAO_MIN) {
+                        }
+                        /* atualiza menor valor */
+                        else if (cel_f->tipo_funcao == TIPO_FUNCAO_MIN) {
                             if (encontrou == 0 || v < valor_resultado) {
                                 valor_resultado = v;
                                 encontrou = 1;
@@ -434,6 +542,7 @@ double CalcularFuncao(Planilha* plan, int indice_cel_funcao)
             }
         }
 
+        /* define resultado final de acordo com o tipo da função */
         switch (cel_f->tipo_funcao) {
             case TIPO_FUNCAO_SOMA:
                 valor_resultado = soma_valores;
@@ -441,6 +550,7 @@ double CalcularFuncao(Planilha* plan, int indice_cel_funcao)
                     valor_resultado = 0.0;
                 }
                 break;
+
             case TIPO_FUNCAO_MEDIA:
                 if (quantidade > 0) {
                     valor_resultado = soma_valores / (double)quantidade;
@@ -448,22 +558,36 @@ double CalcularFuncao(Planilha* plan, int indice_cel_funcao)
                     valor_resultado = 0.0;
                 }
                 break;
+
             case TIPO_FUNCAO_MAX:
-            case TIPO_FUNCAO_MIN:
+                /* se não encontrou nenhum valor válido, adota 0 por convenção */
                 if (encontrou == 0) {
                     valor_resultado = 0.0;
                 }
                 break;
+
+            case TIPO_FUNCAO_MIN:
+                /* mesma ideia do MAX: se não encontrou nada, retorna 0 */
+                if (encontrou == 0) {
+                    valor_resultado = 0.0;
+                }
+                break;
+
             default:
                 valor_resultado = 0.0;
                 break;
         }
     }
+
     return valor_resultado;
 }
 
 /* ----------------------- Exibição da planilha ----------------------- */
 
+/*
+ * Imprime a planilha completa com os valores já avaliados de cada célula.
+ * Se for função, chama CalcularFuncao; se não, chama AvaliarCelula.
+ */
 void ExibirPlanilha(Planilha* plan) 
 {
     int l, c;
@@ -493,6 +617,10 @@ void ExibirPlanilha(Planilha* plan)
 
 /* ----------------- Inicializar / liberar planilha ----------------- */
 
+/*
+ * Aloca a struct Planilha, o vetor de células e a matriz de dependências,
+ * e inicializa tudo com valores padrão (células vazias, matriz zerada).
+ */
 Planilha* InicializarPlanilha() 
 {
     Planilha* plan = (Planilha*)malloc(sizeof(Planilha));
@@ -515,6 +643,7 @@ Planilha* InicializarPlanilha()
         }
     }
 
+    /* inicializa células e aloca cada linha da matriz de dependências */
     if (memoria_ok == 1) {
         for (i = 0; i < TOTAL_CELULAS; i++) {
             plan->vetor_celulas[i].tipo_conteudo = TIPO_CONTEUDO_VAZIA;
@@ -538,6 +667,7 @@ Planilha* InicializarPlanilha()
         }
     }
 
+    /* se algo deu errado na alocação, libera tudo e retorna NULL */
     if (memoria_ok == 0) {
         printf("Erro ao alocar memoria para a planilha.\n");
         if (plan != NULL) {
@@ -559,6 +689,12 @@ Planilha* InicializarPlanilha()
     return plan;
 }
 
+/*
+ * Libera toda a memória associada à planilha:
+ *  - cada linha da matriz de dependências;
+ *  - vetor de células;
+ *  - a própria struct Planilha.
+ */
 void LiberarPlanilha(Planilha* plan) 
 {
     int i = 0;
@@ -580,6 +716,13 @@ void LiberarPlanilha(Planilha* plan)
 
 /* ------------------------- Loop principal ------------------------- */
 
+/*
+ * Loop de interação com o usuário:
+ *  - mostra a planilha
+ *  - lê comandos do tipo "A1 10", "B1 =A1", "C1 @soma(A1..B1)"
+ *  - atualiza a célula correspondente
+ *  - termina ao digitar "SAIR".
+ */
 void LoopPrincipal(Planilha* plan) 
 {
     char linha_entrada[TAMANHO_MAX_EXPRESSAO + 16];
@@ -603,11 +746,13 @@ void LoopPrincipal(Planilha* plan)
         } else {
             linha_entrada[strcspn(linha_entrada, "\n")] = '\0';
 
+            /* verifica se o usuário pediu saída */
             if (strcmp(linha_entrada, "SAIR") == 0 || strcmp(linha_entrada, "sair") == 0) {
                 continuar = 0;
             } else {
                 texto_coordenada[0] = '\0';
                 texto_expressao[0] = '\0';
+                /* separa em "CELULA" "EXPRESSAO" */
                 leitura_valida = sscanf(linha_entrada, "%s %s", texto_coordenada, texto_expressao);
 
                 if (leitura_valida == 2) {

@@ -206,7 +206,6 @@ void RemoverDependencias(Planilha* plan, int indice_cel)
     }
 }
 
-/* ---------------------- Helpers de expressão ---------------------- */
 
 void LimparEstadoCelula(Celula* cel)
 {
@@ -445,37 +444,46 @@ double CalcularFuncao(Planilha* plan, int indice_cel_funcao)
     if (plan != NULL && IndiceCelulaValido(indice_cel_funcao) == 1) {
         Celula* cel_f = &(plan->vetor_celulas[indice_cel_funcao]);
         int indice_inicio = cel_f->indice_inicio_intervalo;
-        int indice_fim = cel_f->indice_fim_intervalo;
-        int linha_menor = 0, linha_maior = 0;
-        int coluna_menor = 0, coluna_maior = 0;
+        int indice_fim    = cel_f->indice_fim_intervalo;
+        int linha_menor   = 0, linha_maior   = 0;
+        int coluna_menor  = 0, coluna_maior  = 0;
         double soma_valores = 0.0;
-        int quantidade = 0;
-        int encontrou = 0;
+        int quantidade      = 0;
+        int encontrou       = 0;
         int l, c;
 
         ObterLimitesIntervalo(indice_inicio, indice_fim,
                               &linha_menor, &linha_maior,
                               &coluna_menor, &coluna_maior);
 
+        /* varre o intervalo e calcula soma/media/max/min */
         for (l = linha_menor; l <= linha_maior; l++) {
             for (c = coluna_menor; c <= coluna_maior; c++) {
                 int indice_atual = l * TOTAL_COLUNAS + c;
+
                 if (indice_atual != indice_cel_funcao) {
                     Celula* cel_atual = &(plan->vetor_celulas[indice_atual]);
+
                     if (cel_atual->tipo_conteudo != TIPO_CONTEUDO_VAZIA &&
                         cel_atual->tipo_conteudo != TIPO_CONTEUDO_FUNCAO) {
 
                         double v = AvaliarCelula(plan, indice_atual);
+
                         if (cel_f->tipo_funcao == TIPO_FUNCAO_SOMA ||
                             cel_f->tipo_funcao == TIPO_FUNCAO_MEDIA) {
+
                             soma_valores += v;
                             quantidade++;
-                        } else if (cel_f->tipo_funcao == TIPO_FUNCAO_MAX) {
+                        }
+                        else if (cel_f->tipo_funcao == TIPO_FUNCAO_MAX) {
+                            /* atualiza o maior valor */
                             if (encontrou == 0 || v > valor_resultado) {
                                 valor_resultado = v;
                                 encontrou = 1;
                             }
-                        } else if (cel_f->tipo_funcao == TIPO_FUNCAO_MIN) {
+                        }
+                        else if (cel_f->tipo_funcao == TIPO_FUNCAO_MIN) {
+                            /* atualiza o menor valor */
                             if (encontrou == 0 || v < valor_resultado) {
                                 valor_resultado = v;
                                 encontrou = 1;
@@ -486,6 +494,7 @@ double CalcularFuncao(Planilha* plan, int indice_cel_funcao)
             }
         }
 
+        /* pós-processamento conforme o tipo da função */
         switch (cel_f->tipo_funcao) {
             case TIPO_FUNCAO_SOMA:
                 valor_resultado = soma_valores;
@@ -493,6 +502,7 @@ double CalcularFuncao(Planilha* plan, int indice_cel_funcao)
                     valor_resultado = 0.0;
                 }
                 break;
+
             case TIPO_FUNCAO_MEDIA:
                 if (quantidade > 0) {
                     valor_resultado = soma_valores / (double)quantidade;
@@ -500,17 +510,28 @@ double CalcularFuncao(Planilha* plan, int indice_cel_funcao)
                     valor_resultado = 0.0;
                 }
                 break;
+
             case TIPO_FUNCAO_MAX:
-            case TIPO_FUNCAO_MIN:
+                /* se nenhum valor válido foi encontrado no intervalo,
+                   define max como 0.0 (convencao da planilha) */
                 if (encontrou == 0) {
                     valor_resultado = 0.0;
                 }
                 break;
+
+            case TIPO_FUNCAO_MIN:
+                /* mesma lógica do MAX: se não achou nada, retorna 0.0 */
+                if (encontrou == 0) {
+                    valor_resultado = 0.0;
+                }
+                break;
+
             default:
                 valor_resultado = 0.0;
                 break;
         }
     }
+
     return valor_resultado;
 }
 
@@ -673,7 +694,7 @@ void BFS(Planilha* plan, int indice_inicio)
     }
 }
 
-/* DFS recursivo (helper, sem retorno explícito) */
+/* DFS recursivo */
 static void DFS_rec(Planilha* plan, int atual, int* visitado)
 {
     NoDependencia* nd = NULL;
