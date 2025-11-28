@@ -1,681 +1,600 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include "Q03.h"
 
 
-/* -------------------------------------------------- */
-/* Conversão de índice <-> coordenada                 */
-/* -------------------------------------------------- */
-
-char* ConverterIndiceParaCoordenada(int indice_celula, char* texto_coordenada) {
-    char* ponteiro_resultado;
-    int indice_linha;
-    int indice_coluna;
-
-    ponteiro_resultado = NULL;
-
-    if (indice_celula >= 0) {
-        if (indice_celula < TOTAL_CELULAS) {
-            indice_coluna = indice_celula % TOTAL_COLUNAS;
-            indice_linha = indice_celula / TOTAL_COLUNAS;
-            sprintf(texto_coordenada, "%c%d", (char)('A' + indice_coluna), indice_linha + 1);
-            ponteiro_resultado = texto_coordenada;
-        }
+int TextoNaoVazio(const char* texto) 
+{
+    int valido = 0;
+    if (texto != NULL && texto[0] != '\0') {
+        valido = 1;
     }
-
-    return ponteiro_resultado;
+    return valido;
 }
 
-int ConverterCoordenadaParaIndice(const char* texto_coordenada) {
-    int indice_resultado;
-    int tamanho_texto;
-    char caractere_coluna;
-    int indice_coluna;
-    int indice_linha;
-
-    indice_resultado = -1;
-
-    if (texto_coordenada != NULL) {
-        tamanho_texto = (int)strlen(texto_coordenada);
-        if (tamanho_texto >= 2) {
-            caractere_coluna = texto_coordenada[0];
-
-            if (caractere_coluna >= 'a') {
-                if (caractere_coluna <= 'z') {
-                    caractere_coluna = (char)(caractere_coluna - 'a' + 'A');
-                }
-            }
-
-            indice_coluna = caractere_coluna - 'A';
-            indice_linha = atoi(texto_coordenada + 1) - 1;
-
-            if (indice_coluna >= 0) {
-                if (indice_coluna < TOTAL_COLUNAS) {
-                    if (indice_linha >= 0) {
-                        if (indice_linha < TOTAL_LINHAS) {
-                            indice_resultado = indice_linha * TOTAL_COLUNAS + indice_coluna;
-                        }
-                    }
-                }
-            }
-        }
+int IndiceCelulaValido(int indice)
+{
+    int valido = 0;
+    if (indice >= 0 && indice < TOTAL_CELULAS) {
+        valido = 1;
     }
-
-    return indice_resultado;
+    return valido;
 }
 
-/* -------------------------------------------------- */
-/* Grafo (matriz de dependências)                     */
-/* -------------------------------------------------- */
-
-void AdicionarDependencia(Planilha* ponteiro_planilha, int indice_dependente, int indice_dependencia) {
-    int indices_validos;
-
-    indices_validos = 0;
-
-    if (ponteiro_planilha != NULL) {
-        if (ponteiro_planilha->matriz_dependencias != NULL) {
-            if (indice_dependente >= 0) {
-                if (indice_dependente < TOTAL_CELULAS) {
-                    if (indice_dependencia >= 0) {
-                        if (indice_dependencia < TOTAL_CELULAS) {
-                            indices_validos = 1;
-                        }
-                    }
-                }
+void NormalizarTextoMinusculo(char* texto) 
+{
+    int i = 0;
+    if (texto != NULL) {
+        while (texto[i] != '\0') {
+            if (texto[i] >= 'A' && texto[i] <= 'Z') {
+                texto[i] = (char)(texto[i] - 'A' + 'a');
             }
-        }
-    }
-
-    if (indices_validos == 1) {
-        ponteiro_planilha->matriz_dependencias[indice_dependente][indice_dependencia] = 1;
-    }
-}
-
-void RemoverDependencias(Planilha* ponteiro_planilha, int indice_celula) {
-    int indice_coluna;
-    int indices_validos;
-
-    indices_validos = 0;
-    indice_coluna = 0;
-
-    if (ponteiro_planilha != NULL) {
-        if (ponteiro_planilha->matriz_dependencias != NULL) {
-            if (indice_celula >= 0) {
-                if (indice_celula < TOTAL_CELULAS) {
-                    indices_validos = 1;
-                }
-            }
-        }
-    }
-
-    if (indices_validos == 1) {
-        while (indice_coluna < TOTAL_CELULAS) {
-            ponteiro_planilha->matriz_dependencias[indice_celula][indice_coluna] = 0;
-            indice_coluna = indice_coluna + 1;
+            i++;
         }
     }
 }
 
-/* -------------------------------------------------- */
-/* Analisar expressão digitada na célula              */
-/* -------------------------------------------------- */
+TipoFuncao ConverterTextoParaTipoFuncao(const char* texto_funcao) 
+{
+    MapaFuncao mapa[] = {
+        {"soma",  TIPO_FUNCAO_SOMA},
+        {"max",   TIPO_FUNCAO_MAX},
+        {"min",   TIPO_FUNCAO_MIN},
+        {"media", TIPO_FUNCAO_MEDIA}
+    };
+    TipoFuncao tipo_resultado = TIPO_FUNCAO_NENHUMA;
+    int qtd = (int)(sizeof(mapa) / sizeof(mapa[0]));
+    int i = 0;
+    int texto_valido = TextoNaoVazio(texto_funcao);
+    int encontrou = 0;
 
-int AnalisarExpressao(Planilha* ponteiro_planilha, int indice_celula, const char* texto_expressao) {
-    int resultado;
-    Celula* ponteiro_celula;
-    char primeiro_caractere;
-    int inicio_numerico;
-    double valor_lido;
-    int leitura_ok;
-    int indice_referencia;
-    int indice_loop;
-    int posicao_parentese;
-    char texto_funcao[16];
-    char texto_intervalo[32];
-    int tamanho_intervalo;
-    char* ponteiro_separador;
-    int indice_inicio_intervalo;
-    int indice_fim_intervalo;
-    int linha_inicio;
-    int linha_fim;
-    int coluna_inicio;
-    int coluna_fim;
-    int linha_menor;
-    int linha_maior;
-    int coluna_menor;
-    int coluna_maior;
-    int linha_atual;
-    int coluna_atual;
-    int indice_atual;
-
-    resultado = 0;
-    ponteiro_celula = &(ponteiro_planilha->vetor_celulas[indice_celula]);
-
-    RemoverDependencias(ponteiro_planilha, indice_celula);
-
-    ponteiro_celula->tipo_conteudo = TIPO_CONTEUDO_VAZIA;
-    ponteiro_celula->valor_numerico = VALOR_PADRAO;
-    ponteiro_celula->texto_expressao[0] = '\0';
-    ponteiro_celula->indice_referencia = -1;
-    ponteiro_celula->tipo_funcao = TIPO_FUNCAO_NENHUMA;
-    ponteiro_celula->indice_inicio_intervalo = 0;
-    ponteiro_celula->indice_fim_intervalo = 0;
-
-    if (texto_expressao != NULL) {
-        if (strlen(texto_expressao) > 0) {
-            strncpy(ponteiro_celula->texto_expressao, texto_expressao, TAMANHO_MAX_EXPRESSAO - 1);
-            ponteiro_celula->texto_expressao[TAMANHO_MAX_EXPRESSAO - 1] = '\0';
-
-            primeiro_caractere = texto_expressao[0];
-            inicio_numerico = 0;
-
-            if (primeiro_caractere >= '0') {
-                if (primeiro_caractere <= '9') {
-                    inicio_numerico = 1;
-                }
+    if (texto_valido == 1) {
+        while (i < qtd && encontrou == 0) {
+            if (strcmp(texto_funcao, mapa[i].nome) == 0) {
+                tipo_resultado = mapa[i].tipo;
+                encontrou = 1;
             }
-
-            if (primeiro_caractere == '-') {
-                if (texto_expressao[1] != '\0') {
-                    if (texto_expressao[1] >= '0') {
-                        if (texto_expressao[1] <= '9') {
-                            inicio_numerico = 1;
-                        }
-                    }
-                }
-            }
-
-            if (inicio_numerico == 1) {
-                leitura_ok = sscanf(texto_expressao, "%lf", &valor_lido);
-                if (leitura_ok == 1) {
-                    ponteiro_celula->tipo_conteudo = TIPO_CONTEUDO_NUMERO;
-                    ponteiro_celula->valor_numerico = valor_lido;
-                    resultado = 1;
-                }
-            } else {
-                if (primeiro_caractere == '=') {
-                    indice_referencia = ConverterCoordenadaParaIndice(texto_expressao + 1);
-                    if (indice_referencia != -1) {
-                        ponteiro_celula->tipo_conteudo = TIPO_CONTEUDO_REFERENCIA;
-                        ponteiro_celula->indice_referencia = indice_referencia;
-                        AdicionarDependencia(ponteiro_planilha, indice_celula, indice_referencia);
-                        resultado = 1;
-                    }
-                } else {
-                    if (primeiro_caractere == '@') {
-                        indice_loop = 1;
-                        posicao_parentese = -1;
-                        while (texto_expressao[indice_loop] != '\0') {
-                            if (texto_expressao[indice_loop] == '(') {
-                                posicao_parentese = indice_loop;
-                                indice_loop = (int)strlen(texto_expressao);
-                            } else {
-                                if ((indice_loop - 1) < 15) {
-                                    texto_funcao[indice_loop - 1] = texto_expressao[indice_loop];
-                                }
-                            }
-                            indice_loop = indice_loop + 1;
-                        }
-
-                        if (posicao_parentese != -1) {
-                            texto_funcao[posicao_parentese - 1] = '\0';
-
-                            indice_loop = 0;
-                            while (texto_funcao[indice_loop] != '\0') {
-                                if (texto_funcao[indice_loop] >= 'A') {
-                                    if (texto_funcao[indice_loop] <= 'Z') {
-                                        texto_funcao[indice_loop] = (char)(texto_funcao[indice_loop] - 'A' + 'a');
-                                    }
-                                }
-                                indice_loop = indice_loop + 1;
-                            }
-
-                            if (texto_expressao[posicao_parentese] == '(') {
-                                if (texto_expressao[strlen(texto_expressao) - 1] == ')') {
-                                    tamanho_intervalo = (int)strlen(texto_expressao) - posicao_parentese - 2;
-                                    if (tamanho_intervalo > 0) {
-                                        if (tamanho_intervalo < 32) {
-                                            strncpy(texto_intervalo, texto_expressao + posicao_parentese + 1, tamanho_intervalo);
-                                            texto_intervalo[tamanho_intervalo] = '\0';
-
-                                            if (strcmp(texto_funcao, "soma") == 0) {
-                                                ponteiro_celula->tipo_funcao = TIPO_FUNCAO_SOMA;
-                                            } else if (strcmp(texto_funcao, "max") == 0) {
-                                                ponteiro_celula->tipo_funcao = TIPO_FUNCAO_MAX;
-                                            } else if (strcmp(texto_funcao, "min") == 0) {
-                                                ponteiro_celula->tipo_funcao = TIPO_FUNCAO_MIN;
-                                            } else if (strcmp(texto_funcao, "media") == 0) {
-                                                ponteiro_celula->tipo_funcao = TIPO_FUNCAO_MEDIA;
-                                            } else {
-                                                ponteiro_celula->tipo_funcao = TIPO_FUNCAO_NENHUMA;
-                                            }
-
-                                            if (ponteiro_celula->tipo_funcao != TIPO_FUNCAO_NENHUMA) {
-                                                ponteiro_separador = strstr(texto_intervalo, "..");
-                                                if (ponteiro_separador != NULL) {
-                                                    *ponteiro_separador = '\0';
-                                                    indice_inicio_intervalo = ConverterCoordenadaParaIndice(texto_intervalo);
-                                                    indice_fim_intervalo = ConverterCoordenadaParaIndice(ponteiro_separador + 2);
-
-                                                    if (indice_inicio_intervalo != -1) {
-                                                        if (indice_fim_intervalo != -1) {
-                                                            ponteiro_celula->tipo_conteudo = TIPO_CONTEUDO_FUNCAO;
-                                                            ponteiro_celula->indice_inicio_intervalo = indice_inicio_intervalo;
-                                                            ponteiro_celula->indice_fim_intervalo = indice_fim_intervalo;
-
-                                                            linha_inicio = indice_inicio_intervalo / TOTAL_COLUNAS;
-                                                            coluna_inicio = indice_inicio_intervalo % TOTAL_COLUNAS;
-                                                            linha_fim = indice_fim_intervalo / TOTAL_COLUNAS;
-                                                            coluna_fim = indice_fim_intervalo % TOTAL_COLUNAS;
-
-                                                            if (linha_inicio <= linha_fim) {
-                                                                linha_menor = linha_inicio;
-                                                                linha_maior = linha_fim;
-                                                            } else {
-                                                                linha_menor = linha_fim;
-                                                                linha_maior = linha_inicio;
-                                                            }
-
-                                                            if (coluna_inicio <= coluna_fim) {
-                                                                coluna_menor = coluna_inicio;
-                                                                coluna_maior = coluna_fim;
-                                                            } else {
-                                                                coluna_menor = coluna_fim;
-                                                                coluna_maior = coluna_inicio;
-                                                            }
-
-                                                            linha_atual = linha_menor;
-                                                            while (linha_atual <= linha_maior) {
-                                                                coluna_atual = coluna_menor;
-                                                                while (coluna_atual <= coluna_maior) {
-                                                                    indice_atual = linha_atual * TOTAL_COLUNAS + coluna_atual;
-                                                                    if (indice_atual != indice_celula) {
-                                                                        AdicionarDependencia(ponteiro_planilha, indice_celula, indice_atual);
-                                                                    }
-                                                                    coluna_atual = coluna_atual + 1;
-                                                                }
-                                                                linha_atual = linha_atual + 1;
-                                                            }
-
-                                                            resultado = 1;
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            i++;
         }
     }
-
-    if (resultado == 0) {
-        ponteiro_celula->tipo_conteudo = TIPO_CONTEUDO_VAZIA;
-        ponteiro_celula->valor_numerico = VALOR_PADRAO;
-        ponteiro_celula->texto_expressao[0] = '\0';
-        ponteiro_celula->tipo_funcao = TIPO_FUNCAO_NENHUMA;
-        ponteiro_celula->indice_inicio_intervalo = 0;
-        ponteiro_celula->indice_fim_intervalo = 0;
-    }
-
-    return resultado;
+    return tipo_resultado;
 }
 
-/* -------------------------------------------------- */
-/* Avaliar célula (recursivo)                         */
-/* -------------------------------------------------- */
-
-double AvaliarCelula(Planilha* ponteiro_planilha, int indice_celula) {
-    double valor_resultado;
-    Celula* ponteiro_celula;
-
-    valor_resultado = 0.0;
-    ponteiro_celula = &(ponteiro_planilha->vetor_celulas[indice_celula]);
-
-    if (ponteiro_celula->tipo_conteudo == TIPO_CONTEUDO_NUMERO) {
-        valor_resultado = ponteiro_celula->valor_numerico;
-    } else {
-        if (ponteiro_celula->tipo_conteudo == TIPO_CONTEUDO_REFERENCIA) {
-            valor_resultado = AvaliarCelula(ponteiro_planilha, ponteiro_celula->indice_referencia);
-        } else {
-            if (ponteiro_celula->tipo_conteudo == TIPO_CONTEUDO_FUNCAO) {
-                valor_resultado = CalcularFuncao(ponteiro_planilha, indice_celula);
-            } else {
-                valor_resultado = 0.0;
-            }
-        }
-    }
-
-    return valor_resultado;
-}
-
-/* -------------------------------------------------- */
-/* Calcular função (@soma, @min, @max, @media)       */
-/* -------------------------------------------------- */
-
-double CalcularFuncao(Planilha* ponteiro_planilha, int indice_celula_funcao) {
-    double valor_resultado;
-    Celula* celula_funcao;
-    int indice_inicio;
-    int indice_fim;
-    int linha_inicio;
-    int linha_fim;
-    int coluna_inicio;
-    int coluna_fim;
-    int linha_menor;
-    int linha_maior;
-    int coluna_menor;
-    int coluna_maior;
-    int linha_atual;
-    int coluna_atual;
-    int indice_atual;
-    Celula* celula_atual;
-    double valor_atual;
-    double soma_valores;
-    int quantidade_valores;
-    int encontrou_primeiro;
-
-    valor_resultado = 0.0;
-    celula_funcao = &(ponteiro_planilha->vetor_celulas[indice_celula_funcao]);
-
-    indice_inicio = celula_funcao->indice_inicio_intervalo;
-    indice_fim = celula_funcao->indice_fim_intervalo;
-
-    linha_inicio = indice_inicio / TOTAL_COLUNAS;
-    coluna_inicio = indice_inicio % TOTAL_COLUNAS;
-    linha_fim = indice_fim / TOTAL_COLUNAS;
-    coluna_fim = indice_fim % TOTAL_COLUNAS;
+void ObterLimitesIntervalo(int indice_inicio, int indice_fim, int* linha_menor, int* linha_maior, int* coluna_menor, int* coluna_maior)
+{
+    int linha_inicio = indice_inicio / TOTAL_COLUNAS;
+    int coluna_inicio = indice_inicio % TOTAL_COLUNAS;
+    int linha_fim = indice_fim / TOTAL_COLUNAS;
+    int coluna_fim = indice_fim % TOTAL_COLUNAS;
 
     if (linha_inicio <= linha_fim) {
-        linha_menor = linha_inicio;
-        linha_maior = linha_fim;
+        *linha_menor = linha_inicio;
+        *linha_maior = linha_fim;
     } else {
-        linha_menor = linha_fim;
-        linha_maior = linha_inicio;
+        *linha_menor = linha_fim;
+        *linha_maior = linha_inicio;
     }
 
     if (coluna_inicio <= coluna_fim) {
-        coluna_menor = coluna_inicio;
-        coluna_maior = coluna_fim;
+        *coluna_menor = coluna_inicio;
+        *coluna_maior = coluna_fim;
     } else {
-        coluna_menor = coluna_fim;
-        coluna_maior = coluna_inicio;
+        *coluna_menor = coluna_fim;
+        *coluna_maior = coluna_inicio;
+    }
+}
+
+/* ------------------ Conversão índice <-> coordenada ------------------ */
+
+char* ConverterIndiceParaCoordenada(int indice_celula, char* texto_coordenada) 
+{
+    char* resultado = NULL;
+    int linha = 0;
+    int coluna = 0;
+
+    if (IndiceCelulaValido(indice_celula) == 1) {
+        coluna = indice_celula % TOTAL_COLUNAS;
+        linha = indice_celula / TOTAL_COLUNAS;
+        sprintf(texto_coordenada, "%c%d", (char)('A' + coluna), linha + 1);
+        resultado = texto_coordenada;
+    }
+    return resultado;
+}
+
+int ConverterCoordenadaParaIndice(const char* texto_coordenada) 
+{
+    int indice_resultado = -1;
+    int tamanho = 0;
+    char ccol = '\0';
+    int col = -1;
+    int lin = -1;
+    int texto_valido = TextoNaoVazio(texto_coordenada);
+
+    if (texto_valido == 1) {
+        tamanho = (int)strlen(texto_coordenada);
+        if (tamanho >= 2) {
+            ccol = texto_coordenada[0];
+            if (ccol >= 'a' && ccol <= 'z') {
+                ccol = (char)(ccol - 'a' + 'A');
+            }
+            col = ccol - 'A';
+            lin = atoi(texto_coordenada + 1) - 1;
+            if (col >= 0 && col < TOTAL_COLUNAS && lin >= 0 && lin < TOTAL_LINHAS) {
+                indice_resultado = lin * TOTAL_COLUNAS + col;
+            }
+        }
+    }
+    return indice_resultado;
+}
+
+/* ---------------------- Dependências (grafo) ---------------------- */
+
+int DependenciasIndicesValidos(Planilha* plan, int dep, int ref) 
+{
+    int valido = 0;
+    if (plan != NULL &&
+        plan->matriz_dependencias != NULL &&
+        IndiceCelulaValido(dep) == 1 &&
+        IndiceCelulaValido(ref) == 1) {
+        valido = 1;
+    }
+    return valido;
+}
+
+void AdicionarDependencia(Planilha* plan, int dep, int ref) 
+{
+    int ok = DependenciasIndicesValidos(plan, dep, ref);
+    if (ok == 1) {
+        plan->matriz_dependencias[dep][ref] = 1;
+    }
+}
+
+void RemoverDependencias(Planilha* plan, int indice_cel) 
+{
+    int ok = 0;
+    int c = 0;
+
+    if (plan != NULL &&
+        plan->matriz_dependencias != NULL &&
+        IndiceCelulaValido(indice_cel) == 1) {
+        ok = 1;
     }
 
-    soma_valores = 0.0;
-    quantidade_valores = 0;
-    encontrou_primeiro = 0;
+    if (ok == 1) {
+        c = 0;
+        while (c < TOTAL_CELULAS) {
+            plan->matriz_dependencias[indice_cel][c] = 0;
+            c++;
+        }
+    }
+}
 
-    linha_atual = linha_menor;
-    while (linha_atual <= linha_maior) {
-        coluna_atual = coluna_menor;
-        while (coluna_atual <= coluna_maior) {
-            indice_atual = linha_atual * TOTAL_COLUNAS + coluna_atual;
+/* ---------------------- Helpers de expressão ---------------------- */
 
-            if (indice_atual != indice_celula_funcao) {
-                celula_atual = &(ponteiro_planilha->vetor_celulas[indice_atual]);
+void LimparEstadoCelula(Celula* cel) 
+{
+    if (cel != NULL) {
+        cel->tipo_conteudo = TIPO_CONTEUDO_VAZIA;
+        cel->valor_numerico = VALOR_PADRAO;
+        cel->texto_expressao[0] = '\0';
+        cel->indice_referencia = -1;
+        cel->tipo_funcao = TIPO_FUNCAO_NENHUMA;
+        cel->indice_inicio_intervalo = 0;
+        cel->indice_fim_intervalo = 0;
+    }
+}
 
-                /* IGNORA células vazias em min/max/media e ignora funções para evitar ciclos entre funções */
-                if (celula_atual->tipo_conteudo == TIPO_CONTEUDO_VAZIA) {
-                    /* não faz nada */
-                } else {
-                    if (celula_atual->tipo_conteudo == TIPO_CONTEUDO_FUNCAO) {
-                        /* para simplificar, não usamos o valor de outras funções dentro de funções grandes */
-                    } else {
-                        valor_atual = AvaliarCelula(ponteiro_planilha, indice_atual);
+void CopiarExpressaoParaCelula(Celula* cel, const char* txt_expr) 
+{
+    if (cel != NULL && TextoNaoVazio(txt_expr) == 1) {
+        strncpy(cel->texto_expressao, txt_expr, TAMANHO_MAX_EXPRESSAO - 1);
+        cel->texto_expressao[TAMANHO_MAX_EXPRESSAO - 1] = '\0';
+    }
+}
 
-                        if (celula_funcao->tipo_funcao == TIPO_FUNCAO_SOMA) {
-                            soma_valores = soma_valores + valor_atual;
-                            quantidade_valores = quantidade_valores + 1;
-                        } else {
-                            if (celula_funcao->tipo_funcao == TIPO_FUNCAO_MEDIA) {
-                                soma_valores = soma_valores + valor_atual;
-                                quantidade_valores = quantidade_valores + 1;
-                            } else {
-                                if (celula_funcao->tipo_funcao == TIPO_FUNCAO_MAX) {
-                                    if (encontrou_primeiro == 0) {
-                                        valor_resultado = valor_atual;
-                                        encontrou_primeiro = 1;
-                                    } else {
-                                        if (valor_atual > valor_resultado) {
-                                            valor_resultado = valor_atual;
-                                        }
-                                    }
-                                } else {
-                                    if (celula_funcao->tipo_funcao == TIPO_FUNCAO_MIN) {
-                                        if (encontrou_primeiro == 0) {
-                                            valor_resultado = valor_atual;
-                                            encontrou_primeiro = 1;
-                                        } else {
-                                            if (valor_atual < valor_resultado) {
-                                                valor_resultado = valor_atual;
-                                            }
-                                        }
-                                    }
-                                }
+int ProcessarExpressaoNumerica(Celula* cel, const char* s) 
+{
+    int resultado = 0;  // assume falha
+
+    if (cel != NULL && TextoNaoVazio(s)) {
+        double v;
+        if (sscanf(s, " %lf", &v) == 1) {
+            cel->tipo_conteudo = TIPO_CONTEUDO_NUMERO;
+            cel->valor_numerico = v;
+            resultado = 1;  // sucesso
+        }
+    }
+
+    return resultado;  
+}
+
+
+int ProcessarExpressaoReferencia(Planilha* plan, Celula* cel, int indice_cel, const char* txt_expr) 
+{
+    int resultado = 0;
+    if (plan != NULL && cel != NULL &&
+        TextoNaoVazio(txt_expr) == 1 && txt_expr[0] == '=') {
+
+        int ref = ConverterCoordenadaParaIndice(txt_expr + 1);
+        if (IndiceCelulaValido(ref) == 1) {
+            cel->tipo_conteudo = TIPO_CONTEUDO_REFERENCIA;
+            cel->indice_referencia = ref;
+            AdicionarDependencia(plan, indice_cel, ref);
+            resultado = 1;
+        }
+    }
+    return resultado;
+}
+
+int ObterNomeFuncaoEIntervalo(const char* txt_expr, char* texto_funcao, char* texto_intervalo) 
+{
+    int resultado = 0;
+    int valido = TextoNaoVazio(txt_expr);
+    int i = 1;
+    int pos_par = -1;
+    int tam = 0;
+    int tam_intervalo = 0;
+
+    if (valido == 1 && txt_expr[0] == '@') {
+        tam = (int)strlen(txt_expr);
+        while (txt_expr[i] != '\0') {
+            char c = txt_expr[i];
+            if (c == '(') {
+                pos_par = i;
+                i = tam;
+            } else if ((i - 1) < 15) {
+                texto_funcao[i - 1] = c;
+            }
+            i++;
+        }
+        if (pos_par != -1 &&
+            txt_expr[pos_par] == '(' &&
+            txt_expr[tam - 1] == ')') {
+
+            texto_funcao[pos_par - 1] = '\0';
+            NormalizarTextoMinusculo(texto_funcao);
+
+            tam_intervalo = tam - pos_par - 2;
+            if (tam_intervalo > 0 && tam_intervalo < 32) {
+                strncpy(texto_intervalo, txt_expr + pos_par + 1, tam_intervalo);
+                texto_intervalo[tam_intervalo] = '\0';
+                resultado = 1;
+            }
+        }
+    }
+    return resultado;
+}
+
+int ProcessarExpressaoFuncao(Planilha* plan, Celula* cel, int indice_cel, const char* txt_expr) 
+{
+    int resultado = 0;
+    char texto_funcao[16];
+    char texto_intervalo[32];
+    int conseguiu = 0;
+    TipoFuncao tipo = TIPO_FUNCAO_NENHUMA;
+    int indice_inicio = 0;
+    int indice_fim = 0;
+
+    if (plan != NULL && cel != NULL &&
+        TextoNaoVazio(txt_expr) == 1 && txt_expr[0] == '@') {
+
+        conseguiu = ObterNomeFuncaoEIntervalo(txt_expr, texto_funcao, texto_intervalo);
+        if (conseguiu == 1) {
+            tipo = ConverterTextoParaTipoFuncao(texto_funcao);
+            if (tipo != TIPO_FUNCAO_NENHUMA) {
+                char intervalo_local[32];
+                char* sep = NULL;
+                int intervalo_ok = 0;
+
+                strncpy(intervalo_local, texto_intervalo, sizeof(intervalo_local) - 1);
+                intervalo_local[sizeof(intervalo_local) - 1] = '\0';
+
+                sep = strstr(intervalo_local, "..");
+                if (sep != NULL) {
+                    *sep = '\0';
+                    indice_inicio = ConverterCoordenadaParaIndice(intervalo_local);
+                    indice_fim = ConverterCoordenadaParaIndice(sep + 2);
+                    if (IndiceCelulaValido(indice_inicio) == 1 &&
+                        IndiceCelulaValido(indice_fim) == 1) {
+                        intervalo_ok = 1;
+                    }
+                }
+
+                if (intervalo_ok == 1) {
+                    int linha_menor = 0, linha_maior = 0;
+                    int coluna_menor = 0, coluna_maior = 0;
+                    int l, c, indice_atual;
+
+                    cel->tipo_conteudo = TIPO_CONTEUDO_FUNCAO;
+                    cel->tipo_funcao = tipo;
+                    cel->indice_inicio_intervalo = indice_inicio;
+                    cel->indice_fim_intervalo = indice_fim;
+
+                    ObterLimitesIntervalo(indice_inicio, indice_fim,
+                                          &linha_menor, &linha_maior,
+                                          &coluna_menor, &coluna_maior);
+
+                    for (l = linha_menor; l <= linha_maior; l++) {
+                        for (c = coluna_menor; c <= coluna_maior; c++) {
+                            indice_atual = l * TOTAL_COLUNAS + c;
+                            if (indice_atual != indice_cel) {
+                                AdicionarDependencia(plan, indice_cel, indice_atual);
+                            }
+                        }
+                    }
+                    resultado = 1;
+                }
+            }
+        }
+    }
+    return resultado;
+}
+
+/* ---------------- Analisar expressão da célula ---------------- */
+
+int AnalisarExpressao(Planilha* plan, int indice_cel, const char* txt_expr) 
+{
+    int resultado = 0;
+    Celula* cel = NULL;
+
+    if (plan != NULL && IndiceCelulaValido(indice_cel) == 1) {
+        cel = &(plan->vetor_celulas[indice_cel]);
+        RemoverDependencias(plan, indice_cel);
+        LimparEstadoCelula(cel);
+
+        if (TextoNaoVazio(txt_expr) == 1) {
+            CopiarExpressaoParaCelula(cel, txt_expr);
+
+            if (ProcessarExpressaoNumerica(cel, txt_expr) == 1) {
+                resultado = 1;
+            } else if (ProcessarExpressaoReferencia(plan, cel, indice_cel, txt_expr) == 1) {
+                resultado = 1;
+            } else if (ProcessarExpressaoFuncao(plan, cel, indice_cel, txt_expr) == 1) {
+                resultado = 1;
+            }
+
+            if (resultado == 0) {
+                LimparEstadoCelula(cel);
+            }
+        }
+    }
+    return resultado;
+}
+
+/* -------------------- Avaliar célula (recursivo) -------------------- */
+
+double AvaliarCelula(Planilha* plan, int indice_cel) 
+{
+    double valor = 0.0;
+    Celula* cel = NULL;
+
+    if (plan != NULL && IndiceCelulaValido(indice_cel) == 1) {
+        cel = &(plan->vetor_celulas[indice_cel]);
+        if (cel->tipo_conteudo == TIPO_CONTEUDO_NUMERO) {
+            valor = cel->valor_numerico;
+        } else if (cel->tipo_conteudo == TIPO_CONTEUDO_REFERENCIA) {
+            valor = AvaliarCelula(plan, cel->indice_referencia);
+        } else if (cel->tipo_conteudo == TIPO_CONTEUDO_FUNCAO) {
+            valor = 0.0; /* será calculado em CalcularFuncao quando for exibido */
+        } else {
+            valor = 0.0;
+        }
+    }
+    return valor;
+}
+
+/* ---------------- Calcular função (@soma, @min, ...) ---------------- */
+
+double CalcularFuncao(Planilha* plan, int indice_cel_funcao) 
+{
+    double valor_resultado = 0.0;
+    if (plan != NULL && IndiceCelulaValido(indice_cel_funcao) == 1) {
+        Celula* cel_f = &(plan->vetor_celulas[indice_cel_funcao]);
+        int indice_inicio = cel_f->indice_inicio_intervalo;
+        int indice_fim = cel_f->indice_fim_intervalo;
+        int linha_menor = 0, linha_maior = 0;
+        int coluna_menor = 0, coluna_maior = 0;
+        double soma_valores = 0.0;
+        int quantidade = 0;
+        int encontrou = 0;
+        int l, c;
+
+        ObterLimitesIntervalo(indice_inicio, indice_fim,
+                              &linha_menor, &linha_maior,
+                              &coluna_menor, &coluna_maior);
+
+        for (l = linha_menor; l <= linha_maior; l++) {
+            for (c = coluna_menor; c <= coluna_maior; c++) {
+                int indice_atual = l * TOTAL_COLUNAS + c;
+                if (indice_atual != indice_cel_funcao) {
+                    Celula* cel_atual = &(plan->vetor_celulas[indice_atual]);
+                    if (cel_atual->tipo_conteudo != TIPO_CONTEUDO_VAZIA &&
+                        cel_atual->tipo_conteudo != TIPO_CONTEUDO_FUNCAO) {
+
+                        double v = AvaliarCelula(plan, indice_atual);
+                        if (cel_f->tipo_funcao == TIPO_FUNCAO_SOMA ||
+                            cel_f->tipo_funcao == TIPO_FUNCAO_MEDIA) {
+                            soma_valores += v;
+                            quantidade++;
+                        } else if (cel_f->tipo_funcao == TIPO_FUNCAO_MAX) {
+                            if (encontrou == 0 || v > valor_resultado) {
+                                valor_resultado = v;
+                                encontrou = 1;
+                            }
+                        } else if (cel_f->tipo_funcao == TIPO_FUNCAO_MIN) {
+                            if (encontrou == 0 || v < valor_resultado) {
+                                valor_resultado = v;
+                                encontrou = 1;
                             }
                         }
                     }
                 }
             }
-
-            coluna_atual = coluna_atual + 1;
         }
-        linha_atual = linha_atual + 1;
-    }
 
-    if (celula_funcao->tipo_funcao == TIPO_FUNCAO_SOMA) {
-        valor_resultado = soma_valores;
-        if (quantidade_valores == 0) {
-            valor_resultado = 0.0;
-        }
-    } else {
-        if (celula_funcao->tipo_funcao == TIPO_FUNCAO_MEDIA) {
-            if (quantidade_valores > 0) {
-                valor_resultado = soma_valores / (double)quantidade_valores;
-            } else {
-                valor_resultado = 0.0;
-            }
-        } else {
-            if (celula_funcao->tipo_funcao == TIPO_FUNCAO_MAX) {
-                if (encontrou_primeiro == 0) {
+        switch (cel_f->tipo_funcao) {
+            case TIPO_FUNCAO_SOMA:
+                valor_resultado = soma_valores;
+                if (quantidade == 0) {
                     valor_resultado = 0.0;
                 }
-            } else {
-                if (celula_funcao->tipo_funcao == TIPO_FUNCAO_MIN) {
-                    if (encontrou_primeiro == 0) {
-                        valor_resultado = 0.0;
-                    }
+                break;
+            case TIPO_FUNCAO_MEDIA:
+                if (quantidade > 0) {
+                    valor_resultado = soma_valores / (double)quantidade;
+                } else {
+                    valor_resultado = 0.0;
                 }
-            }
+                break;
+            case TIPO_FUNCAO_MAX:
+            case TIPO_FUNCAO_MIN:
+                if (encontrou == 0) {
+                    valor_resultado = 0.0;
+                }
+                break;
+            default:
+                valor_resultado = 0.0;
+                break;
         }
     }
-
     return valor_resultado;
 }
 
-/* -------------------------------------------------- */
-/* Exibir planilha                                    */
-/* -------------------------------------------------- */
+/* ----------------------- Exibição da planilha ----------------------- */
 
-void ExibirPlanilha(Planilha* ponteiro_planilha) {
-    int indice_linha;
-    int indice_coluna;
-    int indice_celula;
-    int indice_separador;
-    double valor_celula;
+void ExibirPlanilha(Planilha* plan) 
+{
+    int l, c;
 
-    printf("\n+");
-    indice_separador = 0;
-    while (indice_separador < TOTAL_COLUNAS) {
-        printf("----------+");
-        indice_separador = indice_separador + 1;
-    }
-
+    printf("\n");
     printf("\n|   \\ C  | A        | B        | C        | D        | E        | F        | G        | H        |");
+    printf("\n");
 
-    printf("\n+");
-    indice_separador = 0;
-    while (indice_separador < TOTAL_COLUNAS) {
-        printf("----------+");
-        indice_separador = indice_separador + 1;
-    }
+    for (l = 0; l < TOTAL_LINHAS; l++) {
+        printf("\n| %02d   |", l + 1);
+        for (c = 0; c < TOTAL_COLUNAS; c++) {
+            int indice = l * TOTAL_COLUNAS + c;
+            double valor = 0.0;
+            Celula* cel = &(plan->vetor_celulas[indice]);
 
-    indice_linha = 0;
-    while (indice_linha < TOTAL_LINHAS) {
-        printf("\n| R %02d   |", indice_linha + 1);
+            if (cel->tipo_conteudo == TIPO_CONTEUDO_FUNCAO) {
+                valor = CalcularFuncao(plan, indice);
+            } else {
+                valor = AvaliarCelula(plan, indice);
+            }
 
-        indice_coluna = 0;
-        while (indice_coluna < TOTAL_COLUNAS) {
-            indice_celula = indice_linha * TOTAL_COLUNAS + indice_coluna;
-            valor_celula = AvaliarCelula(ponteiro_planilha, indice_celula);
-            printf(" %8.2lf |", valor_celula);
-            indice_coluna = indice_coluna + 1;
+            printf(" %8.2lf |", valor);
         }
-
-        printf("\n+");
-        indice_separador = 0;
-        while (indice_separador < TOTAL_COLUNAS) {
-            printf("----------+");
-            indice_separador = indice_separador + 1;
-        }
-
-        indice_linha = indice_linha + 1;
     }
-
     printf("\n");
 }
 
-/* -------------------------------------------------- */
-/* Inicializar e liberar planilha                     */
-/* -------------------------------------------------- */
+/* ----------------- Inicializar / liberar planilha ----------------- */
 
-Planilha* InicializarPlanilha() {
-    Planilha* ponteiro_planilha;
-    int memoria_ok;
-    int indice;
-    int indice_linha;
-    int indice_coluna;
+Planilha* InicializarPlanilha() 
+{
+    Planilha* plan = (Planilha*)malloc(sizeof(Planilha));
+    int memoria_ok = 1;
+    int i, j;
 
-    ponteiro_planilha = NULL;
-    memoria_ok = 1;
-
-    ponteiro_planilha = (Planilha*)malloc(sizeof(Planilha));
-    if (ponteiro_planilha == NULL) {
+    if (plan == NULL) {
         memoria_ok = 0;
     }
 
     if (memoria_ok == 1) {
-        ponteiro_planilha->vetor_celulas = (Celula*)malloc(TOTAL_CELULAS * sizeof(Celula));
-        ponteiro_planilha->matriz_dependencias = (int**)malloc(TOTAL_CELULAS * sizeof(int*));
-
-        if (ponteiro_planilha->vetor_celulas == NULL) {
+        plan->vetor_celulas = (Celula*)malloc(TOTAL_CELULAS * sizeof(Celula));
+        plan->matriz_dependencias = (int**)malloc(TOTAL_CELULAS * sizeof(int*));
+        if (plan->vetor_celulas == NULL || plan->matriz_dependencias == NULL) {
             memoria_ok = 0;
-        }
-
-        if (ponteiro_planilha->matriz_dependencias == NULL) {
-            memoria_ok = 0;
-        }
-
-        if (ponteiro_planilha->matriz_dependencias != NULL) {
-            indice = 0;
-            while (indice < TOTAL_CELULAS) {
-                ponteiro_planilha->matriz_dependencias[indice] = NULL;
-                indice = indice + 1;
+        } else {
+            for (i = 0; i < TOTAL_CELULAS; i++) {
+                plan->matriz_dependencias[i] = NULL;
             }
         }
     }
 
     if (memoria_ok == 1) {
-        indice = 0;
-        while (indice < TOTAL_CELULAS) {
-            ponteiro_planilha->vetor_celulas[indice].tipo_conteudo = TIPO_CONTEUDO_VAZIA;
-            ponteiro_planilha->vetor_celulas[indice].valor_numerico = VALOR_PADRAO;
-            ponteiro_planilha->vetor_celulas[indice].texto_expressao[0] = '\0';
-            ponteiro_planilha->vetor_celulas[indice].indice_referencia = -1;
-            ponteiro_planilha->vetor_celulas[indice].tipo_funcao = TIPO_FUNCAO_NENHUMA;
-            ponteiro_planilha->vetor_celulas[indice].indice_inicio_intervalo = 0;
-            ponteiro_planilha->vetor_celulas[indice].indice_fim_intervalo = 0;
-            indice = indice + 1;
+        for (i = 0; i < TOTAL_CELULAS; i++) {
+            plan->vetor_celulas[i].tipo_conteudo = TIPO_CONTEUDO_VAZIA;
+            plan->vetor_celulas[i].valor_numerico = VALOR_PADRAO;
+            plan->vetor_celulas[i].texto_expressao[0] = '\0';
+            plan->vetor_celulas[i].indice_referencia = -1;
+            plan->vetor_celulas[i].tipo_funcao = TIPO_FUNCAO_NENHUMA;
+            plan->vetor_celulas[i].indice_inicio_intervalo = 0;
+            plan->vetor_celulas[i].indice_fim_intervalo = 0;
         }
 
-        indice_linha = 0;
-        while (indice_linha < TOTAL_CELULAS) {
-            if (ponteiro_planilha->matriz_dependencias[indice_linha] == NULL) {
-                ponteiro_planilha->matriz_dependencias[indice_linha] = (int*)malloc(TOTAL_CELULAS * sizeof(int));
-                if (ponteiro_planilha->matriz_dependencias[indice_linha] == NULL) {
-                    memoria_ok = 0;
-                } else {
-                    indice_coluna = 0;
-                    while (indice_coluna < TOTAL_CELULAS) {
-                        ponteiro_planilha->matriz_dependencias[indice_linha][indice_coluna] = 0;
-                        indice_coluna = indice_coluna + 1;
-                    }
+        for (i = 0; i < TOTAL_CELULAS && memoria_ok == 1; i++) {
+            plan->matriz_dependencias[i] = (int*)malloc(TOTAL_CELULAS * sizeof(int));
+            if (plan->matriz_dependencias[i] == NULL) {
+                memoria_ok = 0;
+            } else {
+                for (j = 0; j < TOTAL_CELULAS; j++) {
+                    plan->matriz_dependencias[i][j] = 0;
                 }
             }
-            indice_linha = indice_linha + 1;
         }
     }
 
     if (memoria_ok == 0) {
         printf("Erro ao alocar memoria para a planilha.\n");
-        LiberarPlanilha(ponteiro_planilha);
-        ponteiro_planilha = NULL;
-    }
-
-    return ponteiro_planilha;
-}
-
-void LiberarPlanilha(Planilha* ponteiro_planilha) {
-    int indice_linha;
-
-    if (ponteiro_planilha != NULL) {
-        if (ponteiro_planilha->matriz_dependencias != NULL) {
-            indice_linha = 0;
-            while (indice_linha < TOTAL_CELULAS) {
-                if (ponteiro_planilha->matriz_dependencias[indice_linha] != NULL) {
-                    free(ponteiro_planilha->matriz_dependencias[indice_linha]);
-                    ponteiro_planilha->matriz_dependencias[indice_linha] = NULL;
+        if (plan != NULL) {
+            if (plan->matriz_dependencias != NULL) {
+                for (i = 0; i < TOTAL_CELULAS; i++) {
+                    if (plan->matriz_dependencias[i] != NULL) {
+                        free(plan->matriz_dependencias[i]);
+                    }
                 }
-                indice_linha = indice_linha + 1;
+                free(plan->matriz_dependencias);
             }
-            free(ponteiro_planilha->matriz_dependencias);
-            ponteiro_planilha->matriz_dependencias = NULL;
+            if (plan->vetor_celulas != NULL) {
+                free(plan->vetor_celulas);
+            }
+            free(plan);
+            plan = NULL;
         }
+    }
+    return plan;
+}
 
-        if (ponteiro_planilha->vetor_celulas != NULL) {
-            free(ponteiro_planilha->vetor_celulas);
-            ponteiro_planilha->vetor_celulas = NULL;
+void LiberarPlanilha(Planilha* plan) 
+{
+    int i = 0;
+    if (plan != NULL) {
+        if (plan->matriz_dependencias != NULL) {
+            for (i = 0; i < TOTAL_CELULAS; i++) {
+                if (plan->matriz_dependencias[i] != NULL) {
+                    free(plan->matriz_dependencias[i]);
+                }
+            }
+            free(plan->matriz_dependencias);
         }
-
-        free(ponteiro_planilha);
+        if (plan->vetor_celulas != NULL) {
+            free(plan->vetor_celulas);
+        }
+        free(plan);
     }
 }
 
-/* -------------------------------------------------- */
-/* Loop principal                                     */
-/* -------------------------------------------------- */
+/* ------------------------- Loop principal ------------------------- */
 
-void LoopPrincipal(Planilha* ponteiro_planilha) {
+void LoopPrincipal(Planilha* plan) 
+{
     char linha_entrada[TAMANHO_MAX_EXPRESSAO + 16];
     char texto_coordenada[16];
     char texto_expressao[TAMANHO_MAX_EXPRESSAO];
-    int indice_celula;
-    int sucesso_analisar;
-    int continuar;
-    int leitura_valida;
+    int indice_cel = -1;
+    int sucesso = 0;
+    int continuar = 1;
+    int leitura_valida = 0;
 
-    continuar = 1;
+    texto_coordenada[0] = '\0';
+    texto_expressao[0] = '\0';
 
     while (continuar == 1) {
-        ExibirPlanilha(ponteiro_planilha);
-
+        ExibirPlanilha(plan);
         printf("\nComando (ex: A1 5 ou A2 =A1 ou A3 @soma(A1..A2)):\n");
         printf("Digite 'SAIR' para encerrar.\n> ");
 
@@ -684,30 +603,25 @@ void LoopPrincipal(Planilha* ponteiro_planilha) {
         } else {
             linha_entrada[strcspn(linha_entrada, "\n")] = '\0';
 
-            if (strcmp(linha_entrada, "SAIR") == 0) {
+            if (strcmp(linha_entrada, "SAIR") == 0 || strcmp(linha_entrada, "sair") == 0) {
                 continuar = 0;
             } else {
-                if (strcmp(linha_entrada, "sair") == 0) {
-                    continuar = 0;
-                } else {
-                    texto_coordenada[0] = '\0';
-                    texto_expressao[0] = '\0';
+                texto_coordenada[0] = '\0';
+                texto_expressao[0] = '\0';
+                leitura_valida = sscanf(linha_entrada, "%s %s", texto_coordenada, texto_expressao);
 
-                    leitura_valida = sscanf(linha_entrada, "%s %s", texto_coordenada, texto_expressao);
-
-                    if (leitura_valida == 2) {
-                        indice_celula = ConverterCoordenadaParaIndice(texto_coordenada);
-                        if (indice_celula != -1) {
-                            sucesso_analisar = AnalisarExpressao(ponteiro_planilha, indice_celula, texto_expressao);
-                            if (sucesso_analisar == 0) {
-                                printf("\nERRO: Expressao ou coordenada invalida.\n");
-                            }
-                        } else {
-                            printf("\nERRO: Coordenada de celula invalida ('%s').\n", texto_coordenada);
+                if (leitura_valida == 2) {
+                    indice_cel = ConverterCoordenadaParaIndice(texto_coordenada);
+                    if (IndiceCelulaValido(indice_cel) == 1) {
+                        sucesso = AnalisarExpressao(plan, indice_cel, texto_expressao);
+                        if (sucesso == 0) {
+                            printf("\nERRO: Expressao ou coordenada invalida.\n");
                         }
                     } else {
-                        printf("\nERRO: Formato incorreto. Use: CELULA VALOR/EXPRESSAO.\n");
+                        printf("\nERRO: Coordenada de celula invalida ('%s').\n", texto_coordenada);
                     }
+                } else {
+                    printf("\nERRO: Formato incorreto. Use: CELULA VALOR/EXPRESSAO.\n");
                 }
             }
         }

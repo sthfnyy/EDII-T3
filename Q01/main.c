@@ -9,7 +9,7 @@ int main(void)
     int i;
     
     int (**pmatriz_adj) = NULL;          
-    int (*matriz_adj)[NUM_ESTADOS] = NULL; 
+    int (*matriz_adj)[NUM_ESTADOS] = NULL;
 
     int *antecessor = (int*)malloc(sizeof(int) * NUM_ESTADOS);
     int *distancia  = (int*)malloc(sizeof(int) * NUM_ESTADOS);
@@ -27,17 +27,14 @@ int main(void)
 
     if (aloc_ok)
     {
-        printf("=== Torre de Hanoi com Grafo (Matriz) e Dijkstra (%d discos) ===\n\n", NUM_DISCOS);
-        printf("Cada configuracao e um vetor de %d inteiros (0..%d).\n", NUM_DISCOS, NUM_PINOS-1);
-        printf("Disco 0 = menor, disco %d = maior.\n\n", NUM_DISCOS - 1);
-
+        printf("=== Torre de Hanoi com Grafo(Matriz)\n");
         construir_grafo_matriz(&pmatriz_adj);
 
         /* Le a configuracao inicial do usuario */
         printf("Digite a configuracao inicial (pino de cada disco):\n");
         for (i = 0; i < NUM_DISCOS; i++)
         {
-            printf("Disco %d (0, 1 ou 2): ", i);
+            printf("Disco: ");
             scanf("%d", &configuracao_inicial[i]);
         }
 
@@ -79,7 +76,6 @@ int main(void)
 
     if (distancia  != NULL) free(distancia);
     if (antecessor != NULL) free(antecessor);
-
     if (pmatriz_adj != NULL) liberar_matriz(pmatriz_adj);
 
 

@@ -90,7 +90,8 @@ int hash_b(const char *matricula, int tamanho, int *passo_out)
 void inicializar_tabela(RegistroAluno *tabela, int tamanho) 
 {
     int i;
-    for (i = 0; i < tamanho; i++) {
+    for (i = 0; i < tamanho; i++) 
+    {
         tabela[i].ocupado = 0;
         tabela[i].matricula[0] = '\0';
     }

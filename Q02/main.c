@@ -33,17 +33,14 @@ int main()
         clock_t tempo_fim;
         double tempo_lista;
 
-        printf("=== Torre de Hanoi com Grafo (Lista) e Dijkstra ===\n\n");
-        printf("Cada configuracao e um vetor de 4 inteiros, onde cada posicao indica o pino do disco.\n");
-        printf("Disco 0 = menor, disco 3 = maior. Pinos possiveis: 0, 1, 2.\n\n");
-
+        printf("=== Torre de Hanoi com Grafo (Lista)===\n\n");
         /* Constroi grafo em lista de adjacencia */
         construir_grafo_lista(grafo_lista);
 
         printf("Digite a configuracao inicial (pino de cada disco):\n");
         for (i = 0; i < NUM_DISCOS; i++)
         {
-            printf("Disco %d (0, 1 ou 2): ", i);
+            printf("Disco: ");
             scanf("%d", &configuracao_inicial[i]);
         }
 
